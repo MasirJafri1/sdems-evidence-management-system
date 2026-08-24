@@ -30,6 +30,12 @@ enum DocumentStatus {
   DELETED
 }
 
+enum BlockchainAnchorStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
 model Organization {
   id          String   @id @default(cuid())
   name        String
@@ -204,9 +210,48 @@ model DocumentVersion {
 
   uploadedBy User @relation(fields: [uploadedById], references: [id])
 
+  blockchainAnchor BlockchainAnchor?
+
   @@unique([documentId, versionNumber])
   @@unique([storageKey])
   @@index([documentId])
   @@index([sha256Hash])
   @@index([uploadedById])
+}
+
+model BlockchainAnchor {
+  id String @id @default(cuid())
+
+  documentVersionId String @unique
+
+  chainId BigInt
+
+  contractAddress String
+
+  anchorId String @unique
+
+  caseIdHash String
+  documentIdHash String
+  contentHash String
+
+  versionNumber Int
+
+  transactionHash String?
+  blockNumber BigInt?
+
+  status BlockchainAnchorStatus @default(PENDING)
+
+  errorMessage String?
+
+  anchoredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documentVersion DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+
+  @@index([contentHash])
+  @@index([transactionHash])
+  @@index([status])
+  @@index([chainId])
 }

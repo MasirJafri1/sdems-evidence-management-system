@@ -20,13 +20,15 @@ describe("Auth API Integration Tests", () => {
   });
 
   test("POST /api/organizations/bootstrap — setup organization and admin user", async () => {
-    const response = await request(app).post("/api/organizations/bootstrap").send({
-      organizationName: "Test Auth Organization",
-      organizationCode: "TEST_AUTH_ORG",
-      adminName: "Auth Admin",
-      adminEmail: "auth_test_admin@test.com",
-      adminPassword: "Password123!"
-    });
+    const response = await request(app)
+      .post("/api/organizations/bootstrap")
+      .send({
+        organizationName: "Test Auth Organization",
+        organizationCode: "TEST_AUTH_ORG",
+        adminName: "Auth Admin",
+        adminEmail: "auth_test_admin@test.com",
+        adminPassword: "Password123!"
+      });
 
     expect([200, 201]).toContain(response.status);
   });

@@ -11,14 +11,26 @@ const envSchema = z.object({
   AWS_REGION: z.string().min(1),
   AWS_ACCESS_KEY_ID: z.string().min(1),
   AWS_SECRET_ACCESS_KEY: z.string().min(1),
-  S3_BUCKET_NAME: z.string().min(1)
+  S3_BUCKET_NAME: z.string().min(1),
+  BLOCKCHAIN_RPC_URL: z.string().url().default("http://127.0.0.1:8545"),
+  BLOCKCHAIN_CHAIN_ID: z.coerce.number().default(31337),
+  BLOCKCHAIN_PRIVATE_KEY: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{64}$/)
+    .default(
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    ),
+  BLOCKCHAIN_CONTRACT_ADDRESS: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/)
+    .default("0x5FbDB2315678afecb367f032d93F642f64180aa3")
 });
 
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
   console.error("Invalid environment variables:");
-  console.error(z.treeifyError(parsed.error));
+  console.error(parsed.error.flatten().fieldErrors);
   process.exit(1);
 }
 

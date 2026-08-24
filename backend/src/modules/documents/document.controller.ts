@@ -8,6 +8,7 @@ import { env } from "../../config/env";
 import { calculateSha256 } from "../../utils/hash";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import { createDocumentSchema } from "./document.schema";
+import { anchorDocumentVersion } from "../blockchain/blockchain.service";
 
 function hasPermission(membership: any, permissionName: string): boolean {
   return membership?.role?.permissions?.some(
@@ -165,6 +166,20 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
       }
     });
 
+    let blockchain;
+
+    try {
+      blockchain = await anchorDocumentVersion({
+        documentVersionId: version.id,
+        caseId,
+        documentId: document.id,
+        versionNumber: version.versionNumber,
+        sha256Hash: version.sha256Hash
+      });
+    } catch (error) {
+      console.error("Blockchain anchoring failed:", error);
+    }
+
     res.status(201).json({
       document: {
         id: document.id,
@@ -181,7 +196,8 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
         sha256Hash: version.sha256Hash,
         storageProvider: version.storageProvider,
         uploadedAt: version.uploadedAt
-      }
+      },
+      blockchain
     });
   } catch (error) {
     await prisma.document.delete({
@@ -514,6 +530,20 @@ export async function createDocumentVersion(
     };
   });
 
+  let blockchain;
+
+  try {
+    blockchain = await anchorDocumentVersion({
+      documentVersionId: result.version.id,
+      caseId: document.caseId,
+      documentId,
+      versionNumber: result.version.versionNumber,
+      sha256Hash: result.version.sha256Hash
+    });
+  } catch (error) {
+    console.error("Blockchain anchoring failed:", error);
+  }
+
   res.status(201).json({
     documentId,
     currentVersion: result.updatedDocument.currentVersionNumber,
@@ -526,6 +556,7 @@ export async function createDocumentVersion(
       sha256Hash: result.version.sha256Hash,
       storageProvider: result.version.storageProvider,
       uploadedAt: result.version.uploadedAt
-    }
+    },
+    blockchain
   });
 }
