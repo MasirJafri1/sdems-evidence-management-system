@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CaseStatus {
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum CaseParticipantStatus {
+  ACTIVE
+  REMOVED
+}
+
+enum DocumentStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships OrganizationMembership[]
+  roles        Role[]
+  cases        Case[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  isActive     Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships      OrganizationMembership[]
+  caseParticipants CaseParticipant[]
+  createdCases     Case[] @relation("CaseCreator")
+
+  uploadedVersions DocumentVersion[]
+}
+
+model OrganizationMembership {
+  id             String           @id @default(cuid())
+  userId         String
+  organizationId String
+  roleId         String
+  status         MembershipStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Role {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  organizationId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  memberships OrganizationMembership[]
+  permissions RolePermission[]
+
+  @@unique([organizationId, name])
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+
+  rolePermissions RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Case {
+  id             String     @id @default(cuid())
+  caseNumber     String
+  title          String
+  description    String?
+  status         CaseStatus @default(OPEN)
+
+  organizationId String
+  createdById    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("CaseCreator", fields: [createdById], references: [id])
+
+  participants CaseParticipant[]
+  documents    Document[]
+
+  @@unique([organizationId, caseNumber])
+  @@index([organizationId])
+  @@index([createdById])
+}
+
+model CaseParticipant {
+  id     String @id @default(cuid())
+  caseId String
+  userId String
+
+  isCaseAdmin Boolean @default(false)
+  status      CaseParticipantStatus @default(ACTIVE)
+
+  joinedAt  DateTime @default(now())
+  removedAt DateTime?
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+  @@index([caseId])
+  @@index([userId])
+}
+
+model Document {
+  id       String @id @default(cuid())
+  caseId   String
+
+  title       String
+  description String?
+
+  documentType String?
+  status       DocumentStatus @default(ACTIVE)
+
+  currentVersionNumber Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  versions DocumentVersion[]
+
+  @@index([caseId])
+  @@index([status])
+}
+
+model DocumentVersion {
+  id         String @id @default(cuid())
+  documentId String
+
+  versionNumber Int
+
+  originalFileName String
+  mimeType         String
+  fileSize         BigInt
+
+  sha256Hash String
+
+  storageProvider String
+  storageBucket   String
+  storageKey      String
+
+  uploadedById String
+  uploadedAt   DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@unique([documentId, versionNumber])
+  @@unique([storageKey])
+  @@index([documentId])
+  @@index([sha256Hash])
+  @@index([uploadedById])
+}
