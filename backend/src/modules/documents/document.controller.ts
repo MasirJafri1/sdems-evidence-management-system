@@ -10,11 +10,11 @@ import { AuthenticatedRequest } from "../../middleware/auth";
 import { createDocumentSchema } from "./document.schema";
 import { anchorDocumentVersion } from "../blockchain/blockchain.service";
 import { createAuditEvent } from "../audit/audit.service";
+import { checkCasePermission } from "../authorization/authorization.service";
 
-function hasPermission(membership: any, permissionName: string): boolean {
-  return membership?.role?.permissions?.some(
-    (rp: any) => rp.permission.name === permissionName
-  );
+async function verifyPermission(userId: string, caseId: string, permissionName: string): Promise<boolean> {
+  const result = await checkCasePermission({ userId, caseId, permissionName });
+  return result.allowed;
 }
 
 async function getCaseMembership(userId: string, caseId: string) {
@@ -28,12 +28,23 @@ async function getCaseMembership(userId: string, caseId: string) {
     return null;
   }
 
-  const membership = await prisma.organizationMembership.findUnique({
+  const participant = await prisma.caseParticipant.findUnique({
     where: {
-      userId_organizationId: {
-        userId,
-        organizationId: caseRecord.organizationId
+      caseId_userId: {
+        caseId,
+        userId
       }
+    }
+  });
+
+  if (!participant || participant.status !== "ACTIVE") {
+    return null;
+  }
+
+  const membership = await prisma.organizationMembership.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE"
     },
     include: {
       role: {
@@ -52,23 +63,10 @@ async function getCaseMembership(userId: string, caseId: string) {
     return null;
   }
 
-  const participant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId,
-        userId
-      }
-    }
-  });
-
-  if (!participant || participant.status !== "ACTIVE") {
-    return null;
-  }
-
   return {
     caseRecord,
-    membership,
-    participant
+    participant,
+    membership
   };
 }
 
@@ -96,7 +94,7 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  if (!hasPermission(access.membership, "DOCUMENT_CREATE")) {
+  if (!(await verifyPermission(userId, caseId, "DOCUMENT_CREATE"))) {
     res.status(403).json({
       message: "Missing DOCUMENT_CREATE permission"
     });
@@ -243,7 +241,7 @@ export async function listDocuments(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  if (!hasPermission(access.membership, "DOCUMENT_READ")) {
+  if (!(await verifyPermission(userId, caseId, "DOCUMENT_READ"))) {
     res.status(403).json({
       message: "Missing DOCUMENT_READ permission"
     });
@@ -358,7 +356,7 @@ export async function getDocument(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  if (!hasPermission(access.membership, "DOCUMENT_READ")) {
+  if (!(await verifyPermission(userId, document.caseId, "DOCUMENT_READ"))) {
     res.status(403).json({
       message: "Missing DOCUMENT_READ permission"
     });
@@ -427,7 +425,7 @@ export async function downloadDocument(
     return;
   }
 
-  if (!hasPermission(access.membership, "DOCUMENT_DOWNLOAD")) {
+  if (!(await verifyPermission(userId, document.caseId, "DOCUMENT_DOWNLOAD"))) {
     res.status(403).json({
       message: "Missing DOCUMENT_DOWNLOAD permission"
     });
@@ -524,7 +522,7 @@ export async function createDocumentVersion(
     return;
   }
 
-  if (!hasPermission(access.membership, "DOCUMENT_VERSION_CREATE")) {
+  if (!(await verifyPermission(userId, document.caseId, "DOCUMENT_VERSION_CREATE"))) {
     res.status(403).json({
       message: "Missing DOCUMENT_VERSION_CREATE permission"
     });

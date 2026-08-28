@@ -4,6 +4,7 @@ import { AuthenticatedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { createCaseSchema, addParticipantSchema } from "./case.schema";
 import { createAuditEvent } from "../audit/audit.service";
+import { checkCasePermission } from "../authorization/authorization.service";
 
 async function getOrganizationMembership(
   userId: string,
@@ -207,18 +208,16 @@ export async function getCase(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  const participant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId,
-        userId
-      }
-    }
+  const authResult = await checkCasePermission({
+    userId,
+    caseId,
+    permissionName: "CASE_READ"
   });
 
-  if (!participant || participant.status !== "ACTIVE") {
+  if (!authResult.allowed) {
     res.status(403).json({
-      message: "You are not a participant of this case"
+      message: "Forbidden",
+      reason: authResult.reason
     });
     return;
   }
@@ -276,18 +275,21 @@ export async function addParticipant(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  const targetMembership = await prisma.organizationMembership.findUnique({
+  /*
+   * Cross-Organization Support:
+   * Target user must have an active organization membership in ANY organization,
+   * not restricted to caseRecord.organizationId.
+   */
+  const targetMembership = await prisma.organizationMembership.findFirst({
     where: {
-      userId_organizationId: {
-        userId: parsed.data.userId,
-        organizationId: caseRecord.organizationId
-      }
+      userId: parsed.data.userId,
+      status: "ACTIVE"
     }
   });
 
-  if (!targetMembership || targetMembership.status !== "ACTIVE") {
+  if (!targetMembership) {
     res.status(400).json({
-      message: "User must be an active member of the case organization"
+      message: "User must have an active organization membership"
     });
     return;
   }

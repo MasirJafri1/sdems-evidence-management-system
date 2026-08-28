@@ -18,6 +18,8 @@ describe("Phase 5 Milestone — Complete End-to-End Chain of Custody Lifecycle",
   let evidenceId: string;
 
   beforeAll(async () => {
+    await prisma.$executeRawUnsafe(`TRUNCATE TABLE "CustodyEvent", "CustodyTransfer", "Evidence", "AuditEvent" CASCADE;`);
+
     // 1. Create Organization & Role
     const org = await prisma.organization.create({
       data: {

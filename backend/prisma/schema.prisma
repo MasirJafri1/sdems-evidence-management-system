@@ -64,6 +64,11 @@ enum CustodyTransferStatus {
   REJECTED
 }
 
+enum PermissionEffect {
+  GRANT
+  DENY
+}
+
 model Organization {
   id          String   @id @default(cuid())
   name        String
@@ -103,6 +108,9 @@ model User {
   initiatedCustodyTransfers CustodyTransfer[] @relation("CustodyTransferInitiator")
   custodyEventsFrom         CustodyEvent[]    @relation("CustodyEventsFrom")
   custodyEventsTo           CustodyEvent[]    @relation("CustodyEventsTo")
+
+  casePermissions        CasePermission[]
+  createdCasePermissions CasePermission[] @relation("CasePermissionCreator")
 }
 
 model OrganizationMembership {
@@ -147,6 +155,7 @@ model Permission {
   description String?
 
   rolePermissions RolePermission[]
+  casePermissions CasePermission[]
 }
 
 model RolePermission {
@@ -179,6 +188,8 @@ model Case {
   documents    Document[]
   evidence     Evidence[]
   auditEvents  AuditEvent[]
+
+  permissions CasePermission[]
 
   @@unique([organizationId, caseNumber])
   @@index([organizationId])
@@ -445,4 +456,35 @@ model CustodyEvent {
   @@index([evidenceId, sequence])
   @@index([eventHash])
   @@index([blockchainAnchorId])
+}
+
+model CasePermission {
+  id String @id @default(cuid())
+
+  caseId       String
+  userId       String
+  permissionId String
+
+  effect PermissionEffect @default(GRANT)
+
+  expiresAt DateTime?
+
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdBy User @relation("CasePermissionCreator", fields: [createdById], references: [id])
+
+  @@unique([caseId, userId, permissionId])
+  @@index([caseId])
+  @@index([userId])
+  @@index([permissionId])
+  @@index([expiresAt])
 }

@@ -8,6 +8,7 @@ import documentRoutes from "./modules/documents/document.routes";
 import blockchainRoutes from "./modules/blockchain/blockchain.routes";
 import auditRoutes from "./modules/audit/audit.routes";
 import evidenceRoutes from "./modules/evidence/evidence.routes";
+import authorizationRoutes from "./modules/authorization/authorization.routes";
 import { errorHandler } from "./middleware/error";
 
 const app = express();
@@ -24,7 +25,7 @@ app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     service: "secure-evidence-backend",
-    phase: 5
+    phase: 6
   });
 });
 
@@ -35,6 +36,7 @@ app.use("/api", documentRoutes);
 app.use("/api", blockchainRoutes);
 app.use("/api", auditRoutes);
 app.use("/api", evidenceRoutes);
+app.use("/api/authorization", authorizationRoutes);
 
 app.use(errorHandler);
 
