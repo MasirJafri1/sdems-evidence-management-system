@@ -84,4 +84,39 @@ describe("EvidenceRegistry Smart Contract", () => {
       expect(error.message).to.include("AccessControl");
     }
   });
+
+  it("should anchor a custody event on-chain", async () => {
+    const evidenceIdHash = ethers.id("EVD-001");
+    const transferIdHash = ethers.id("TRF-001");
+    const eventHash =
+      "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+    const sequence = 1;
+
+    const anchorId = await registry.computeCustodyAnchorId(
+      caseIdHash,
+      evidenceIdHash,
+      transferIdHash,
+      sequence
+    );
+
+    const tx = await registry.anchorCustodyEvent(
+      caseIdHash,
+      evidenceIdHash,
+      transferIdHash,
+      eventHash,
+      sequence
+    );
+    await tx.wait();
+
+    const exists = await registry.custodyAnchorExistsOnChain(anchorId);
+    expect(exists).to.be.true;
+
+    const verified = await registry.verifyCustodyAnchor(anchorId, eventHash);
+    expect(verified).to.be.true;
+
+    const wrongHash =
+      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    const verifiedWrong = await registry.verifyCustodyAnchor(anchorId, wrongHash);
+    expect(verifiedWrong).to.be.false;
+  });
 });

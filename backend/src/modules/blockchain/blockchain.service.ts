@@ -5,7 +5,8 @@ import { evidenceRegistryAbi } from "./evidence-registry.abi";
 import {
   hashIdentifier,
   normalizeSha256,
-  computeAnchorId
+  computeAnchorId,
+  computeCustodyAnchorId
 } from "./blockchain.utils";
 
 const provider = new JsonRpcProvider(env.BLOCKCHAIN_RPC_URL);
@@ -234,6 +235,100 @@ export async function anchorDocumentVersion(
 
     throw error;
   }
+}
+
+export interface CustodyAnchorInput {
+  evidenceId: string;
+  caseId: string;
+  transferId: string;
+  sequence: number;
+  eventHash: string;
+}
+
+export interface CustodyAnchorResult {
+  anchorId: string;
+  transactionHash: string;
+  blockNumber: number;
+  chainId: number;
+  contractAddress: string;
+  eventHash: string;
+  sequence: number;
+  status: "CONFIRMED";
+}
+
+export async function anchorCustodyEvent(
+  input: CustodyAnchorInput
+): Promise<CustodyAnchorResult> {
+  const eventHash = normalizeSha256(input.eventHash);
+  const caseIdHash = hashIdentifier(input.caseId);
+  const evidenceIdHash = hashIdentifier(input.evidenceId);
+  const transferIdHash = hashIdentifier(input.transferId);
+
+  const anchorId = computeCustodyAnchorId(
+    input.caseId,
+    input.evidenceId,
+    input.transferId,
+    input.sequence
+  );
+
+  const network = await provider.getNetwork();
+  const chainId = Number(network.chainId);
+
+  const alreadyExists = await registryReader.custodyAnchorExistsOnChain(
+    anchorId
+  );
+
+  if (alreadyExists) {
+    const events = await registryReader.queryFilter(
+      registryReader.filters.CustodyEventAnchored(anchorId)
+    );
+
+    const latestEvent = events[events.length - 1];
+
+    let transactionHash = "already-anchored";
+    let blockNumber = 0;
+
+    if (latestEvent && "transactionHash" in latestEvent) {
+      transactionHash = latestEvent.transactionHash;
+      blockNumber = latestEvent.blockNumber;
+    }
+
+    return {
+      anchorId,
+      transactionHash,
+      blockNumber,
+      chainId,
+      contractAddress: env.BLOCKCHAIN_CONTRACT_ADDRESS,
+      eventHash,
+      sequence: input.sequence,
+      status: "CONFIRMED"
+    };
+  }
+
+  const tx = await registry.anchorCustodyEvent(
+    caseIdHash,
+    evidenceIdHash,
+    transferIdHash,
+    eventHash,
+    input.sequence
+  );
+
+  const receipt = await tx.wait();
+
+  if (!receipt) {
+    throw new Error("Blockchain transaction did not return a receipt");
+  }
+
+  return {
+    anchorId,
+    transactionHash: receipt.hash,
+    blockNumber: receipt.blockNumber,
+    chainId,
+    contractAddress: env.BLOCKCHAIN_CONTRACT_ADDRESS,
+    eventHash,
+    sequence: input.sequence,
+    status: "CONFIRMED"
+  };
 }
 
 export async function verifyDocumentVersion(documentVersionId: string) {

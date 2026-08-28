@@ -27,3 +27,19 @@ export function computeAnchorId(
     [caseIdHash, documentIdHash, versionNumber]
   );
 }
+
+export function computeCustodyAnchorId(
+  caseId: string,
+  evidenceId: string,
+  transferId: string,
+  sequence: number
+): string {
+  const caseIdHash = hashIdentifier(caseId);
+  const evidenceIdHash = hashIdentifier(evidenceId);
+  const transferIdHash = hashIdentifier(transferId);
+
+  return solidityPackedKeccak256(
+    ["bytes32", "bytes32", "bytes32", "uint64"],
+    [caseIdHash, evidenceIdHash, transferIdHash, sequence]
+  );
+}

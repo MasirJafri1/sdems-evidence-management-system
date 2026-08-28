@@ -45,12 +45,29 @@ enum AuditEventType {
   DOCUMENT_VERIFIED
   DOCUMENT_VERSION_CREATED
   ACCESS_DENIED
+  EVIDENCE_CREATED
+  CUSTODY_TRANSFER_INITIATED
+  CUSTODY_TRANSFER_ACCEPTED
+  CUSTODY_TRANSFER_REJECTED
+}
+
+enum EvidenceStatus {
+  ACTIVE
+  IN_TRANSFER
+  RELEASED
+  ARCHIVED
+}
+
+enum CustodyTransferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
 
 model Organization {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
-  code        String  @unique
+  code        String   @unique
   description String?
 
   createdAt DateTime @default(now())
@@ -62,11 +79,11 @@ model Organization {
 }
 
 model User {
-  id           String  @id @default(cuid())
+  id           String   @id @default(cuid())
   name         String
-  email        String  @unique
+  email        String   @unique
   passwordHash String
-  isActive     Boolean @default(true)
+  isActive     Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -78,6 +95,14 @@ model User {
   uploadedVersions DocumentVersion[]
 
   auditEvents AuditEvent[]
+
+  currentEvidenceCustodies  Evidence[]        @relation("CurrentEvidenceCustodian")
+  createdEvidence           Evidence[]        @relation("EvidenceCreator")
+  custodyTransfersFrom      CustodyTransfer[] @relation("CustodyTransfersFrom")
+  custodyTransfersTo        CustodyTransfer[] @relation("CustodyTransfersTo")
+  initiatedCustodyTransfers CustodyTransfer[] @relation("CustodyTransferInitiator")
+  custodyEventsFrom         CustodyEvent[]    @relation("CustodyEventsFrom")
+  custodyEventsTo           CustodyEvent[]    @relation("CustodyEventsTo")
 }
 
 model OrganizationMembership {
@@ -100,7 +125,7 @@ model OrganizationMembership {
 }
 
 model Role {
-  id             String  @id @default(cuid())
+  id             String   @id @default(cuid())
   name           String
   description    String?
   organizationId String
@@ -117,8 +142,8 @@ model Role {
 }
 
 model Permission {
-  id          String  @id @default(cuid())
-  name        String  @unique
+  id          String   @id @default(cuid())
+  name        String   @unique
   description String?
 
   rolePermissions RolePermission[]
@@ -152,6 +177,7 @@ model Case {
 
   participants CaseParticipant[]
   documents    Document[]
+  evidence     Evidence[]
   auditEvents  AuditEvent[]
 
   @@unique([organizationId, caseNumber])
@@ -225,6 +251,8 @@ model DocumentVersion {
   uploadedBy User @relation(fields: [uploadedById], references: [id])
 
   blockchainAnchor BlockchainAnchor?
+
+  evidence Evidence?
 
   @@unique([documentId, versionNumber])
   @@unique([storageKey])
@@ -303,4 +331,118 @@ model AuditEvent {
   @@index([actorId])
   @@index([eventType])
   @@index([eventHash])
+}
+
+model Evidence {
+  id String @id @default(cuid())
+
+  caseId String
+
+  documentVersionId String @unique
+
+  evidenceNumber String
+
+  title       String
+  description String?
+
+  status EvidenceStatus @default(ACTIVE)
+
+  currentCustodianId String?
+
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  documentVersion DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Restrict)
+
+  currentCustodian User? @relation("CurrentEvidenceCustodian", fields: [currentCustodianId], references: [id], onDelete: SetNull)
+
+  createdBy User @relation("EvidenceCreator", fields: [createdById], references: [id])
+
+  transfers CustodyTransfer[]
+
+  custodyEvents CustodyEvent[]
+
+  @@unique([caseId, evidenceNumber])
+  @@index([caseId])
+  @@index([currentCustodianId])
+  @@index([status])
+}
+
+model CustodyTransfer {
+  id String @id @default(cuid())
+
+  evidenceId String
+
+  fromUserId String
+  toUserId   String
+
+  initiatedById String
+
+  reason String
+
+  status CustodyTransferStatus @default(PENDING)
+
+  requestedAt DateTime @default(now())
+
+  respondedAt DateTime?
+
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  evidence Evidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+
+  fromUser User @relation("CustodyTransfersFrom", fields: [fromUserId], references: [id])
+
+  toUser User @relation("CustodyTransfersTo", fields: [toUserId], references: [id])
+
+  initiatedBy User @relation("CustodyTransferInitiator", fields: [initiatedById], references: [id])
+
+  custodyEvent CustodyEvent?
+
+  @@index([evidenceId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([status])
+}
+
+model CustodyEvent {
+  id String @id @default(cuid())
+
+  evidenceId String
+
+  transferId String @unique
+
+  sequence Int
+
+  fromUserId String
+  toUserId   String
+
+  reason String
+
+  eventHash String
+
+  blockchainAnchorId        String?
+  blockchainTransactionHash String?
+  blockchainBlockNumber     BigInt?
+
+  createdAt DateTime @default(now())
+
+  evidence Evidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+
+  transfer CustodyTransfer @relation(fields: [transferId], references: [id], onDelete: Restrict)
+
+  fromUser User @relation("CustodyEventsFrom", fields: [fromUserId], references: [id])
+
+  toUser User @relation("CustodyEventsTo", fields: [toUserId], references: [id])
+
+  @@unique([evidenceId, sequence])
+  @@index([evidenceId, sequence])
+  @@index([eventHash])
+  @@index([blockchainAnchorId])
 }
