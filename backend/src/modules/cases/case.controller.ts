@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { createCaseSchema, addParticipantSchema } from "./case.schema";
+import { createAuditEvent } from "../audit/audit.service";
 
 async function getOrganizationMembership(
   userId: string,
@@ -92,6 +93,20 @@ export async function createCase(req: AuthenticatedRequest, res: Response) {
         }
       }
     }
+  });
+
+  await createAuditEvent({
+    caseId: newCase.id,
+    actorId: userId,
+    eventType: "CASE_CREATED",
+    entityType: "Case",
+    entityId: newCase.id,
+    metadata: {
+      caseNumber: newCase.caseNumber,
+      title: newCase.title
+    },
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent") ?? null
   });
 
   res.status(201).json(newCase);
@@ -292,6 +307,19 @@ export async function addParticipant(req: AuthenticatedRequest, res: Response) {
         }
       }
     }
+  });
+
+  await createAuditEvent({
+    caseId,
+    actorId: currentUserId,
+    eventType: "USER_ADDED",
+    entityType: "CaseParticipant",
+    entityId: participant.id,
+    metadata: {
+      addedUserId: participant.userId
+    },
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent") ?? null
   });
 
   res.status(201).json(participant);

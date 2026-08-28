@@ -18,6 +18,7 @@ describe("Document API Integration Tests", () => {
 
   beforeAll(async () => {
     // Clean up test data if present
+    await prisma.$executeRawUnsafe(`TRUNCATE TABLE "AuditEvent" CASCADE;`);
     await prisma.organization.deleteMany({
       where: { code: "TEST_DOC_ORG" }
     });
@@ -114,6 +115,7 @@ describe("Document API Integration Tests", () => {
   });
 
   afterAll(async () => {
+    await prisma.$executeRawUnsafe(`TRUNCATE TABLE "AuditEvent" CASCADE;`);
     await prisma.organization.deleteMany({
       where: { code: "TEST_DOC_ORG" }
     });

@@ -10,7 +10,8 @@ describe("EvidenceRegistry Smart Contract", () => {
 
   const caseIdHash = ethers.id("CASE-001");
   const documentIdHash = ethers.id("DOC-001");
-  const contentHash = "0x9b1deb4d98f12345678901234567890123456789012345678901234567890123";
+  const contentHash =
+    "0x9b1deb4d98f12345678901234567890123456789012345678901234567890123";
   const version = 1;
 
   beforeEach(async () => {

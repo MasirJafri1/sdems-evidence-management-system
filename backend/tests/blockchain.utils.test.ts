@@ -12,9 +12,7 @@ describe("Blockchain utilities", () => {
   });
 
   test("should reject invalid SHA-256 hash", () => {
-    expect(() => normalizeSha256("invalid")).toThrow(
-      "Invalid SHA-256 hash"
-    );
+    expect(() => normalizeSha256("invalid")).toThrow("Invalid SHA-256 hash");
   });
 
   test("should reject short SHA-256 hash", () => {

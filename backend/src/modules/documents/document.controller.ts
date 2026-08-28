@@ -9,6 +9,7 @@ import { calculateSha256 } from "../../utils/hash";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import { createDocumentSchema } from "./document.schema";
 import { anchorDocumentVersion } from "../blockchain/blockchain.service";
+import { createAuditEvent } from "../audit/audit.service";
 
 function hasPermission(membership: any, permissionName: string): boolean {
   return membership?.role?.permissions?.some(
@@ -180,6 +181,22 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
       console.error("Blockchain anchoring failed:", error);
     }
 
+    await createAuditEvent({
+      caseId,
+      actorId: userId,
+      eventType: "DOCUMENT_CREATED",
+      entityType: "Document",
+      entityId: document.id,
+      metadata: {
+        title: document.title,
+        documentType: document.documentType,
+        versionNumber: 1,
+        sha256Hash: hash
+      },
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent") ?? null
+    });
+
     res.status(201).json({
       document: {
         id: document.id,
@@ -320,6 +337,21 @@ export async function getDocument(req: AuthenticatedRequest, res: Response) {
   const access = await getCaseMembership(userId, document.caseId);
 
   if (!access) {
+    await createAuditEvent({
+      caseId: document.caseId,
+      actorId: userId,
+      eventType: "ACCESS_DENIED",
+      entityType: "Document",
+      entityId: document.id,
+      metadata: {
+        reason: "User is not an active case participant",
+        endpoint: req.originalUrl,
+        method: req.method
+      },
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent") ?? null
+    });
+
     res.status(403).json({
       message: "You are not authorized to access this document"
     });
@@ -332,6 +364,19 @@ export async function getDocument(req: AuthenticatedRequest, res: Response) {
     });
     return;
   }
+
+  await createAuditEvent({
+    caseId: document.caseId,
+    actorId: userId,
+    eventType: "DOCUMENT_VIEWED",
+    entityType: "Document",
+    entityId: document.id,
+    metadata: {
+      currentVersion: document.currentVersionNumber
+    },
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent") ?? null
+  });
 
   res.json({
     ...document,
@@ -412,6 +457,21 @@ export async function downloadDocument(
 
   const signedUrl = await getSignedUrl(s3, command, {
     expiresIn: 300
+  });
+
+  await createAuditEvent({
+    caseId: document.caseId,
+    actorId: userId,
+    eventType: "DOCUMENT_DOWNLOADED",
+    entityType: "DocumentVersion",
+    entityId: version.id,
+    metadata: {
+      documentId: version.documentId,
+      versionNumber: version.versionNumber,
+      sha256Hash: version.sha256Hash
+    },
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent") ?? null
   });
 
   res.json({
@@ -543,6 +603,22 @@ export async function createDocumentVersion(
   } catch (error) {
     console.error("Blockchain anchoring failed:", error);
   }
+
+  await createAuditEvent({
+    caseId: document.caseId,
+    actorId: userId,
+    eventType: "DOCUMENT_VERSION_CREATED",
+    entityType: "DocumentVersion",
+    entityId: result.version.id,
+    metadata: {
+      documentId: document.id,
+      versionNumber: nextVersion,
+      sha256Hash: hash,
+      storageKey
+    },
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent") ?? null
+  });
 
   res.status(201).json({
     documentId,

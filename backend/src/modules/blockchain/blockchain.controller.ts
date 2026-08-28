@@ -6,6 +6,7 @@ import {
   getBlockchainAnchor,
   getBlockchainStatus
 } from "./blockchain.service";
+import { createAuditEvent } from "../audit/audit.service";
 
 export async function verifyVersion(req: AuthenticatedRequest, res: Response) {
   const userId = req.userId!;
@@ -44,6 +45,21 @@ export async function verifyVersion(req: AuthenticatedRequest, res: Response) {
   }
 
   const result = await verifyDocumentVersion(versionId);
+
+  await createAuditEvent({
+    caseId: version.document.caseId,
+    actorId: userId,
+    eventType: "DOCUMENT_VERIFIED",
+    entityType: "DocumentVersion",
+    entityId: version.id,
+    metadata: {
+      versionNumber: version.versionNumber,
+      sha256Hash: version.sha256Hash,
+      verificationResult: result.verified
+    },
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent") ?? null
+  });
 
   res.json(result);
 }
