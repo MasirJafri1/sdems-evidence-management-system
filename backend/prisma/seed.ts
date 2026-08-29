@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const permissions = [
+  { name: "CASE_CREATE", description: "Create a new case" },
   { name: "CASE_READ", description: "Read case information" },
   { name: "CASE_UPDATE", description: "Update case information" },
   { name: "CASE_PARTICIPANT_MANAGE", description: "Manage case participants" },
@@ -20,7 +21,11 @@ const permissions = [
   { name: "CUSTODY_HISTORY_READ", description: "Read custody history" },
   { name: "AUDIT_READ", description: "Read audit history" },
   { name: "CASE_PERMISSION_GRANT", description: "Grant case permission" },
-  { name: "CASE_PERMISSION_REVOKE", description: "Revoke case permission" }
+  { name: "CASE_PERMISSION_REVOKE", description: "Revoke case permission" },
+  { name: "ROLE_CREATE", description: "Create organization roles" },
+  { name: "ROLE_READ", description: "Read organization roles" },
+  { name: "USER_CREATE", description: "Create organization users" },
+  { name: "USER_READ", description: "Read organization users" }
 ];
 
 async function main() {
