@@ -10,6 +10,8 @@ import auditRoutes from "./modules/audit/audit.routes";
 import evidenceRoutes from "./modules/evidence/evidence.routes";
 import authorizationRoutes from "./modules/authorization/authorization.routes";
 import { errorHandler } from "./middleware/error";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger";
 
 const app = express();
 
@@ -37,6 +39,8 @@ app.use("/api", blockchainRoutes);
 app.use("/api", auditRoutes);
 app.use("/api", evidenceRoutes);
 app.use("/api/authorization", authorizationRoutes);
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use(errorHandler);
 

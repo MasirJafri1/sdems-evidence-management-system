@@ -43,6 +43,8 @@ export async function bootstrap(req: Request, res: Response) {
     return;
   }
 
+  const passwordHash = await hashPassword(adminPassword);
+
   const result = await prisma.$transaction(async (tx) => {
     const organization = await tx.organization.create({
       data: {
@@ -65,8 +67,6 @@ export async function bootstrap(req: Request, res: Response) {
         }
       }
     });
-
-    const passwordHash = await hashPassword(adminPassword);
 
     const user = await tx.user.create({
       data: {
