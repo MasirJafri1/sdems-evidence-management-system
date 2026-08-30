@@ -14,25 +14,6 @@ SDEMS is an enterprise-grade, government-compliant **Secure Digital Evidence & D
 
 ---
 
-## 📸 System Screenshots
-
-### 1. Executive Integrity Dashboard
-![Dashboard Overview](docs/images/dashboard_overview.png)
-
-### 2. Active Case Registry
-![Case Registry](docs/images/case_registry.png)
-
-### 3. Digital Evidence Documents Binder
-![Digital Evidence Binder](docs/images/documents_binder.png)
-
-### 4. Encrypted AWS S3 Upload & Anchoring Pipeline
-![Secure Upload Pipeline](docs/images/s3_pipeline_upload.png)
-
-### 5. Cryptographic System Integrity Monitors
-![System Integrity Monitors](docs/images/system_integrity_monitors.png)
-
----
-
 ## 🏗️ System Architecture & Workflow Flowcharts
 
 ### 1. Full-Stack Data & Storage Pipeline
@@ -42,8 +23,8 @@ flowchart TD
     A[Investigative Officer / Browser UI] -->|1. Authenticate Bearer JWT| B[Express.js API Server]
     B -->|2. Compute SHA-256 Hash| C[Crypto Digest Engine]
     B -->|3. Encrypted Upload AES-256| D[(AWS S3 Storage Vault)]
-    B -->|4. Persist Record Metadata| E[(Supabase PostgreSQL DB)]
-    C -->|5. On-Chain Keccak-256 Anchor| F[Hardhat Ethereum Node]
+    B -->|4. Persist Record Metadata| E[(PostgreSQL DB)]
+    C -->|5. On-Chain Keccak-256 Anchor| F[Ethereum Blockchain Node]
     F -->|6. Commit Block & Tx Hash| B
     B -->|7. Return Presigned URL & Anchor ID| A
 ```
@@ -90,12 +71,12 @@ flowchart LR
 ## ✨ Key Features
 
 1. **🔒 Zero-Trust AWS S3 File Vault**:
-   - Streamed binary upload via `multer` to AWS S3 (`ap-south-1`).
+   - Streamed binary upload via `multer` to AWS S3.
    - Server-Side Encryption using `AES256`.
    - Temporary, expiring S3 Presigned URLs (`getSignedUrl`) for secure downloads without exposing AWS credentials.
 
 2. **⛓️ Blockchain Proof-of-Existence**:
-   - Automated smart contract anchoring (`anchorDocumentVersion`) on Ethereum local node.
+   - Automated smart contract anchoring (`anchorDocumentVersion`) on Ethereum network.
    - Dual-hash verification matching local SHA-256 fingerprints with on-chain Keccak-256 blocks.
 
 3. **🤝 Physical Chain of Custody Portal**:
@@ -118,9 +99,9 @@ flowchart LR
 | **Frontend UI** | React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons |
 | **State & Routing** | Redux Toolkit (`@reduxjs/toolkit`), React Router v6, Axios |
 | **Backend API** | Node.js, Express.js, Prisma ORM, Zod Validation |
-| **Database** | PostgreSQL (Supabase Cloud Database) |
+| **Database** | PostgreSQL |
 | **Object Storage** | AWS S3 (Amazon Web Services Simple Storage Service) |
-| **Blockchain** | Hardhat Local Ethereum Node, Ethers.js v6 |
+| **Blockchain** | Ethereum Node, Hardhat, Ethers.js v6 |
 
 ---
 
@@ -129,7 +110,6 @@ flowchart LR
 ### Prerequisites
 - Node.js (v18 or higher)
 - npm (v9 or higher)
-- Hardhat Local Ethereum Node (Running at `http://127.0.0.1:8545`)
 
 ---
 
@@ -142,15 +122,15 @@ cd backend
 npm install
 
 # 2. Configure Environment Variables (.env)
-# Create a .env file inside backend/ with the following:
-DATABASE_URL="postgresql://postgres:sihps113.com@db.wupztltfpaxubpyxlyec.supabase.co:5432/postgres"
-JWT_SECRET="95f2e7f9b58a2c0f2471186bb199a6bfbc95f1462ebdc6e0fdd50cce225159e5"
+# Create a .env file inside backend/ with placeholders:
+DATABASE_URL="postgresql://user:password@localhost:5432/sdems_db"
+JWT_SECRET="your_jwt_secret_key_here"
 PORT=5000
 NODE_ENV="development"
-AWS_REGION="ap-south-1"
-AWS_ACCESS_KEY_ID="AKIAUN3F5SSN7QG55D3A"
-AWS_SECRET_ACCESS_KEY="u+oE+OJJSsThzChwrkuGYlxngEcTWz57ovUkXNmg"
-S3_BUCKET_NAME="secure-evidence-bucket"
+AWS_REGION="your_aws_region_here"
+AWS_ACCESS_KEY_ID="your_aws_access_key_id_here"
+AWS_SECRET_ACCESS_KEY="your_aws_secret_access_key_here"
+S3_BUCKET_NAME="your_s3_bucket_name_here"
 BLOCKCHAIN_RPC_URL="http://127.0.0.1:8545"
 
 # 3. Generate Prisma Client
@@ -177,14 +157,6 @@ npm run dev
 ```
 
 The React Application will start on **`http://localhost:5173/`**.
-
----
-
-## 🔐 Default Admin Credentials
-
-- **Primary Admin Login**: `admin@cbi.gov`
-- **Password**: `Password123!`
-- **Organization**: `Central Bureau of Investigation` (`CBI-001`)
 
 ---
 
