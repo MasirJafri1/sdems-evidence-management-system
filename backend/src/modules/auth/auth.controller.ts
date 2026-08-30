@@ -51,12 +51,17 @@ export async function login(req: Request, res: Response) {
     userId: user.id
   });
 
+  const membership = await prisma.organizationMembership.findFirst({
+    where: { userId: user.id, status: "ACTIVE" }
+  });
+
   res.json({
     token,
     user: {
       id: user.id,
       name: user.name,
-      email: user.email
+      email: user.email,
+      organizationId: membership?.organizationId || null
     }
   });
 }

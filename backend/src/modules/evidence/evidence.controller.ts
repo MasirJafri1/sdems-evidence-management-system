@@ -40,13 +40,12 @@ export async function createEvidenceController(
 
   if (
     !caseId ||
-    !documentVersionId ||
     !evidenceNumber ||
     !title
   ) {
     res.status(400).json({
       message:
-        "caseId, documentVersionId, evidenceNumber and title are required"
+        "caseId, evidenceNumber and title are required"
     });
     return;
   }
@@ -422,3 +421,112 @@ export async function verifyCustodyHistoryController(
     ...result
   });
 }
+
+export async function listCaseEvidenceController(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const userId = req.userId!;
+  const caseId = req.params.caseId as string;
+
+  const participant = await prisma.caseParticipant.findUnique({
+    where: {
+      caseId_userId: {
+        caseId,
+        userId
+      }
+    }
+  });
+
+  if (!participant || participant.status !== "ACTIVE") {
+    res.status(403).json({
+      message: "You are not an active participant of this case"
+    });
+    return;
+  }
+
+  const items = await prisma.evidence.findMany({
+    where: {
+      caseId
+    },
+    include: {
+      documentVersion: true,
+      currentCustodian: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      },
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+
+  res.json(items.map(serializeEvidence));
+}
+
+export async function listOrganizationEvidenceController(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const userId = req.userId!;
+
+  const membership = await prisma.organizationMembership.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE"
+    }
+  });
+
+  if (!membership) {
+    res.json([]);
+    return;
+  }
+
+  const items = await prisma.evidence.findMany({
+    where: {
+      case: {
+        organizationId: membership.organizationId
+      }
+    },
+    include: {
+      case: {
+        select: {
+          id: true,
+          caseNumber: true,
+          title: true
+        }
+      },
+      documentVersion: true,
+      currentCustodian: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      },
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+
+  res.json(items.map(serializeEvidence));
+}
+

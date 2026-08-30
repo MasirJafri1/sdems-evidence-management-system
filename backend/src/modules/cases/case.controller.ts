@@ -144,6 +144,12 @@ export async function getCases(req: AuthenticatedRequest, res: Response) {
       }
     },
     include: {
+      _count: {
+        select: {
+          evidence: true,
+          documents: true,
+        }
+      },
       participants: {
         where: {
           status: "ACTIVE"

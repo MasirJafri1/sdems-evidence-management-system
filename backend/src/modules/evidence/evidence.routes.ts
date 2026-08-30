@@ -7,10 +7,24 @@ import {
   acceptTransferController,
   rejectTransferController,
   custodyHistory,
-  verifyCustodyHistoryController
+  verifyCustodyHistoryController,
+  listCaseEvidenceController,
+  listOrganizationEvidenceController
 } from "./evidence.controller";
 
 const router = Router();
+
+router.get(
+  "/evidence",
+  authenticate,
+  listOrganizationEvidenceController
+);
+
+router.get(
+  "/cases/:caseId/evidence",
+  authenticate,
+  listCaseEvidenceController
+);
 
 router.post(
   "/evidence",
