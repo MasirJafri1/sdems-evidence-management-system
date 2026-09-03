@@ -20,11 +20,11 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    'inline-flex items-center justify-center font-medium rounded border transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer';
+    'inline-flex items-center justify-center font-medium rounded-lg border transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-amber-500/20 focus:ring-offset-0 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer active:scale-[0.98]';
 
   const variants = {
     primary:
-      'bg-slate-900 text-white hover:bg-slate-800 border-slate-900 shadow-sm font-semibold',
+      'bg-gradient-to-r from-slate-900 to-slate-800 text-white hover:from-slate-800 hover:to-slate-700 border-transparent shadow-lg shadow-slate-900/20 font-semibold',
     secondary:
       'bg-slate-100 text-slate-800 hover:bg-slate-200 border-slate-300 font-medium',
     outline:

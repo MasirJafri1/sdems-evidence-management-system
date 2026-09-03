@@ -16,18 +16,18 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {label}
           </label>
         )}
-        <div className="relative flex items-center">
+        <div className="relative flex items-center group">
           {leftIcon && (
-            <div className="absolute left-3 text-slate-500 pointer-events-none flex items-center">
+            <div className="absolute left-3.5 text-slate-400 group-focus-within:text-amber-600 transition-colors pointer-events-none flex items-center">
               {leftIcon}
             </div>
           )}
           <input
             ref={ref}
-            className={`w-full rounded bg-white border text-slate-900 placeholder-slate-400 text-sm px-3 py-2 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-800 ${
-              leftIcon ? 'pl-9' : ''
+            className={`w-full rounded-lg bg-slate-50/50 border text-slate-900 placeholder-slate-400 text-sm px-4 py-2.5 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 focus:bg-white shadow-sm hover:border-slate-300 ${
+              leftIcon ? 'pl-10' : ''
             } ${
-              error ? 'border-red-600 focus:ring-red-300' : 'border-slate-300 hover:border-slate-400'
+              error ? 'border-red-600 focus:ring-red-300/50' : 'border-slate-200'
             } ${className}`}
             {...props}
           />
