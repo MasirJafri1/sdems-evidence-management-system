@@ -2,38 +2,21 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import { ethers } from "ethers";
-import {
-  DeployContractOptions,
-  FactoryOptions,
-  HardhatEthersHelpers as HardhatEthersHelpersBase
-} from "@nomicfoundation/hardhat-ethers/types";
+
+import { ethers } from 'ethers'
+import { DeployContractOptions, FactoryOptions, HardhatEthersHelpers as HardhatEthersHelpersBase} from "@nomicfoundation/hardhat-ethers/types";
 
 import * as Contracts from "./index.js";
 
 declare module "@nomicfoundation/hardhat-ethers/types" {
   interface HardhatEthersHelpers extends HardhatEthersHelpersBase {
-    getContractFactory(
-      name: "EvidenceRegistry",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.EvidenceRegistry__factory>;
+  getContractFactory(name: 'EvidenceRegistry', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.EvidenceRegistry__factory>
 
-    getContractAt(
-      name: "EvidenceRegistry",
-      address: string | ethers.Addressable,
-      signer?: ethers.Signer
-    ): Promise<Contracts.EvidenceRegistry>;
+  getContractAt(name: 'EvidenceRegistry', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.EvidenceRegistry>
 
-    deployContract(
-      name: "EvidenceRegistry",
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.EvidenceRegistry>;
+  deployContract(name: 'EvidenceRegistry', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.EvidenceRegistry>
 
-    deployContract(
-      name: "EvidenceRegistry",
-      args: any[],
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.EvidenceRegistry>;
+  deployContract(name: 'EvidenceRegistry', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.EvidenceRegistry>
 
     // default types
     getContractFactory(
@@ -61,3 +44,4 @@ declare module "@nomicfoundation/hardhat-ethers/types" {
     ): Promise<ethers.Contract>;
   }
 }
+  
