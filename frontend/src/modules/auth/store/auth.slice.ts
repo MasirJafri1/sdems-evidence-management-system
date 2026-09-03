@@ -18,15 +18,9 @@ const storedToken = localStorage.getItem('ndear_token');
 const storedUser = localStorage.getItem('ndear_user');
 
 const initialState: AuthState = {
-  user: storedUser ? JSON.parse(storedUser) : {
-    id: 'cmtfg5dic0003mh0wsgg64m1b',
-    name: 'Senior Inspector Rajesh Sharma',
-    email: 'admin@cbi.gov',
-    isActive: true,
-    organizationId: 'cmtfg5cer0000mh0w2bnhp068',
-  },
+  user: storedUser ? JSON.parse(storedUser) : null,
   token: storedToken || null,
-  isAuthenticated: !!storedToken || true,
+  isAuthenticated: !!storedToken,
 };
 
 export const authSlice = createSlice({
