@@ -215,6 +215,7 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
       blockchain
     });
   } catch (error) {
+    console.error("🔥 CRITICAL UPLOAD ERROR CAUGHT IN CONTROLLER:", error);
     await prisma.document.delete({
       where: {
         id: document.id

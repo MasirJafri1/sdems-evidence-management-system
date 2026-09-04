@@ -92,6 +92,8 @@ export async function bootstrap(req: Request, res: Response) {
       adminRole,
       user
     };
+  }, {
+    timeout: 15000 // Increased timeout to 15 seconds to accommodate network latency to Tokyo
   });
 
   res.status(201).json(result);
