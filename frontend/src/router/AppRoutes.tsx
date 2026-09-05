@@ -20,6 +20,8 @@ import { CustodyPage } from '../modules/custody/pages/CustodyPage';
 import { ReportsPage } from '../modules/reports/pages/ReportsPage';
 import { SettingsPage } from '../modules/settings/pages/SettingsPage';
 
+import { AccessRequestsPage } from '../modules/authorization/pages/AccessRequestsPage';
+
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
@@ -54,6 +56,7 @@ export const AppRoutes: React.FC = () => {
         <Route path={ROUTES.PROTECTED.ROLES} element={<UsersPage />} />
         <Route path={ROUTES.PROTECTED.PERMISSIONS} element={<UsersPage />} />
         <Route path={ROUTES.PROTECTED.ORGANIZATIONS} element={<OrganizationsPage />} />
+        <Route path={ROUTES.PROTECTED.ACCESS_REQUESTS} element={<AccessRequestsPage />} />
         <Route path={ROUTES.PROTECTED.REPORTS} element={<ReportsPage />} />
         <Route path={ROUTES.PROTECTED.SETTINGS} element={<SettingsPage />} />
       </Route>

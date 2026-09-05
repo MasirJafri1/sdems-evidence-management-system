@@ -50,8 +50,7 @@ export const CaseDetailsPage: React.FC = () => {
     referenceNumber: caseRecord?.referenceNumber || 'REF-CBI-2026-001',
     title: caseRecord?.title || 'TESTING PURPOSE',
     description: caseRecord?.description || 'Official investigative container for digital exhibits and physical property.',
-    caseType: caseRecord?.caseType || 'Cyber Crime',
-    priority: caseRecord?.priority || 'HIGH',
+    caseType: caseRecord?.caseType || 'General Investigation',
     status: caseRecord?.status || 'Active',
     organization: 'Central Bureau of Investigation',
     leadOfficer: 'Senior Inspector Rajesh Sharma',
@@ -160,7 +159,6 @@ export const CaseDetailsPage: React.FC = () => {
               <div className="space-y-2 text-xs">
                 <div><span className="font-bold text-slate-500">Dept Reference:</span> <span className="font-mono text-slate-900 font-bold">{currentCase.referenceNumber}</span></div>
                 <div><span className="font-bold text-slate-500">Organization:</span> <span className="text-slate-900 font-semibold">{currentCase.organization}</span></div>
-                <div><span className="font-bold text-slate-500">Priority:</span> <span className="font-semibold text-slate-900">{currentCase.priority}</span></div>
                 <div><span className="font-bold text-slate-500">Created:</span> <span className="text-slate-700">{new Date(currentCase.createdAt).toLocaleDateString()}</span></div>
               </div>
             </Card>

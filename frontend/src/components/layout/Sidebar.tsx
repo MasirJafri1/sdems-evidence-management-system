@@ -16,13 +16,25 @@ import {
 import { ROUTES } from '../../config/routes.config';
 import { ENV } from '../../config/env.config';
 
+import { useAppSelector } from '../../store';
+
+// ... inside Sidebar component:
 export const Sidebar: React.FC = () => {
+  const { user } = useAppSelector((state) => state.auth);
+
+  const activeOrgName = user?.isSuperAdmin || !user?.organizationId
+    ? 'National Evidence Governance Board'
+    : 'Registered Government Agency';
+
+
   const mainNav = [
     { label: 'Overview', path: ROUTES.PROTECTED.DASHBOARD, icon: LayoutDashboard },
     { label: 'Cases', path: ROUTES.PROTECTED.CASES.LIST, icon: FolderArchive },
     { label: 'Documents', path: ROUTES.PROTECTED.DOCUMENTS.LIST, icon: FileText },
     { label: 'Evidence', path: ROUTES.PROTECTED.EVIDENCE.LIST, icon: Box },
     { label: 'Custody', path: ROUTES.PROTECTED.CUSTODY.LIST, icon: GitCommit },
+    { label: 'Access Requests', path: ROUTES.PROTECTED.ACCESS_REQUESTS, icon: ShieldCheck },
+    { label: 'Organizations', path: ROUTES.PROTECTED.ORGANIZATIONS, icon: Building },
     { label: 'Verification', path: ROUTES.PROTECTED.VERIFICATION, icon: ShieldCheck },
     { label: 'Audit Log', path: ROUTES.PROTECTED.AUDIT, icon: History },
     { label: 'Reports', path: ROUTES.PROTECTED.REPORTS, icon: FileSpreadsheet },
@@ -85,7 +97,7 @@ export const Sidebar: React.FC = () => {
       <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-2 text-[11px] text-slate-600">
         <div className="flex items-center gap-2">
           <Building className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-          <span className="font-semibold text-slate-800 truncate">Central Bureau of Investigation</span>
+          <span className="font-semibold text-slate-800 truncate">{activeOrgName}</span>
         </div>
         <div className="flex items-center justify-between text-[10px]">
           <span>Security Status:</span>
@@ -95,3 +107,4 @@ export const Sidebar: React.FC = () => {
     </aside>
   );
 };
+

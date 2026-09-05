@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -28,29 +29,66 @@ const permissions = [
   { name: "USER_READ", description: "Read organization users" }
 ];
 
-async function main() {
-  console.log("Seeding permissions...");
+async function seedSuperAdmin() {
+  console.log("==========================================");
+  console.log("   SEEDING GLOBAL SUPER ADMIN & PERMISSIONS ");
+  console.log("==========================================\n");
 
-  for (const permission of permissions) {
-    await prisma.permission.upsert({
-      where: {
-        name: permission.name
-      },
-      update: {
-        description: permission.description
-      },
-      create: permission
+  try {
+    // 0. Clear all existing data from database tables
+    console.log("🧹 Clearing all existing database tables...");
+    await prisma.custodyTransfer.deleteMany({});
+    await prisma.custodyEvent.deleteMany({});
+    await prisma.evidence.deleteMany({});
+    await prisma.documentVersion.deleteMany({});
+    await prisma.document.deleteMany({});
+    await prisma.casePermission.deleteMany({});
+    await prisma.caseParticipant.deleteMany({});
+    await prisma.case.deleteMany({});
+    await prisma.auditEvent.deleteMany({});
+    await prisma.rolePermission.deleteMany({});
+    await prisma.organizationMembership.deleteMany({});
+    await prisma.role.deleteMany({});
+    await prisma.user.deleteMany({});
+    await prisma.organization.deleteMany({});
+    console.log("✅ Database tables successfully cleared!\n");
+
+    // 1. Seed System Permissions
+    console.log("🔑 Seeding system permission matrix...");
+    for (const permission of permissions) {
+      await prisma.permission.upsert({
+        where: { name: permission.name },
+        update: { description: permission.description },
+        create: permission
+      });
+    }
+
+    // 2. Create Global Standalone Super Admin Account (No Org Association)
+    console.log("👤 Seeding Unassociated Standalone Super Admin Account...");
+    const hashedPassword = await bcrypt.hash("Password123!", 10);
+
+    await prisma.user.upsert({
+      where: { email: "superadmin@gov.in" },
+      update: { passwordHash: hashedPassword },
+      create: {
+        name: "System Super Admin",
+        email: "superadmin@gov.in",
+        passwordHash: hashedPassword
+      }
     });
-  }
 
-  console.log("Permissions seeded successfully.");
+    console.log("\n✅ GLOBAL STANDALONE SUPER ADMIN SEEDED SUCCESSFULLY!");
+    console.log("==========================================");
+    console.log("  Role              : Unassociated Global Super Admin");
+    console.log("  Official Email    : superadmin@gov.in");
+    console.log("  Default Password  : Password123!");
+    console.log("==========================================\n");
+  } catch (error) {
+    console.error("❌ Error seeding Super Admin:", error);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+seedSuperAdmin();

@@ -5,7 +5,6 @@ import { CaseStatusBadge } from './CaseStatusBadge';
 import { Button } from '../../../components/ui/Button';
 import { ROUTES } from '../../../config/routes.config';
 import { FolderArchive, Loader2 } from 'lucide-react';
-import { Badge } from '../../../components/ui/Badge';
 
 interface CasesTableProps {
   cases: MockCase[];
@@ -22,7 +21,6 @@ export const CasesTable: React.FC<CasesTableProps> = ({ cases, isLoading = false
           <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider">
             <th className="p-3">Case ID & Ref</th>
             <th className="p-3">Title & Type</th>
-            <th className="p-3">Priority</th>
             <th className="p-3">Status</th>
             <th className="p-3">Organization & Lead</th>
             <th className="p-3 text-center">Items</th>
@@ -32,7 +30,7 @@ export const CasesTable: React.FC<CasesTableProps> = ({ cases, isLoading = false
         <tbody className="divide-y divide-slate-200 font-medium bg-white">
           {isLoading ? (
             <tr>
-              <td colSpan={7} className="p-8 text-center text-slate-500">
+              <td colSpan={6} className="p-8 text-center text-slate-500">
                 <div className="flex items-center justify-center gap-2 font-semibold">
                   <Loader2 className="w-4 h-4 animate-spin text-slate-700" />
                   <span>Loading case registry from database...</span>
@@ -41,7 +39,7 @@ export const CasesTable: React.FC<CasesTableProps> = ({ cases, isLoading = false
             </tr>
           ) : cases.length === 0 ? (
             <tr>
-              <td colSpan={7} className="p-8 text-center text-slate-500">
+              <td colSpan={6} className="p-8 text-center text-slate-500">
                 No official case records match the specified filters.
               </td>
             </tr>
@@ -55,11 +53,6 @@ export const CasesTable: React.FC<CasesTableProps> = ({ cases, isLoading = false
                 <td className="p-3 space-y-0.5">
                   <div className="font-bold text-slate-900">{c.title}</div>
                   <div className="text-[11px] text-slate-500">{c.caseType}</div>
-                </td>
-                <td className="p-3">
-                  <Badge variant={c.priority === 'CRITICAL' ? 'danger' : c.priority === 'HIGH' ? 'warning' : 'neutral'} size="sm">
-                    {c.priority}
-                  </Badge>
                 </td>
                 <td className="p-3">
                   <CaseStatusBadge status={c.status} />

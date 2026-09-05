@@ -7,7 +7,6 @@ export interface CaseApiRecord {
   title: string;
   description: string;
   caseType: string;
-  priority: 'HIGH' | 'MEDIUM' | 'CRITICAL' | 'STANDARD';
   status: 'Active' | 'Under Review' | 'Pending Verification' | 'Closed' | 'Archived';
   organizationId: string;
   createdAt: string;
@@ -36,7 +35,6 @@ export const createCaseApi = async (
     title: string;
     description: string;
     caseType: string;
-    priority: string;
   }
 ): Promise<CaseApiRecord> => {
   const response = await apiClient.post<CaseApiRecord>(`/organizations/${organizationId}/cases`, data);

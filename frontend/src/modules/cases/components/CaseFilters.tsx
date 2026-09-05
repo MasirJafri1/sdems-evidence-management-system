@@ -28,16 +28,13 @@ export const CaseFilters: React.FC<CaseFiltersProps> = ({
         <option value="Archived">Archived</option>
       </select>
 
-      <select
-        value={typeFilter}
-        onChange={(e) => setTypeFilter(e.target.value)}
+      <input
+        type="text"
+        placeholder="Filter by case type..."
+        value={typeFilter === 'ALL' ? '' : typeFilter}
+        onChange={(e) => setTypeFilter(e.target.value.trim() ? e.target.value : 'ALL')}
         className="px-3 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-800"
-      >
-        <option value="ALL">All Case Types</option>
-        <option value="Cyber Crime">Cyber Crime</option>
-        <option value="Financial Fraud">Financial Fraud</option>
-        <option value="Judicial Exhibit">Judicial Exhibit</option>
-      </select>
+      />
     </div>
   );
 };

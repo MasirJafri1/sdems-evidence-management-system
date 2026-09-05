@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { getOrganizationUsersApi, createUserApi, type UserApiRecord } from '../api/organization.api';
 
 interface OrganizationState {

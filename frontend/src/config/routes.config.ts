@@ -26,6 +26,7 @@ export const ROUTES = {
     ROLES: '/roles',
     PERMISSIONS: '/permissions',
     ORGANIZATIONS: '/organizations',
+    ACCESS_REQUESTS: '/access-requests',
     REPORTS: '/reports',
     SETTINGS: '/settings',
   },

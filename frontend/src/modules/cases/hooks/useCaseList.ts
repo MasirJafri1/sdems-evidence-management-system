@@ -30,7 +30,7 @@ export const useCaseList = () => {
       c.caseNumber.toLowerCase().includes(search.toLowerCase()) ||
       c.referenceNumber.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
-    const matchesType = typeFilter === 'ALL' || c.caseType === typeFilter;
+    const matchesType = typeFilter === 'ALL' || (c.caseType && c.caseType.toLowerCase().includes(typeFilter.toLowerCase()));
     return matchesSearch && matchesStatus && matchesType;
   });
 

@@ -12,18 +12,7 @@ export const CustodyPage: React.FC = () => {
   const [isAcceptOpen, setIsAcceptOpen] = useState(false);
 
   // Active transfers state
-  const mockTransfers = [
-    {
-      id: 'trf-001',
-      evidenceNumber: 'EVID-2026-9041',
-      itemTitle: 'Seized Dell Latitude Forensic Workstation',
-      fromOfficer: 'Sub-Inspector Anil Kumar (CBI)',
-      toOfficer: 'Senior Inspector Rajesh Sharma (CBI)',
-      status: 'ACCEPTED',
-      timestamp: new Date().toISOString(),
-      reason: 'Forensic drive extraction and hash computation',
-    },
-  ];
+  const [transfers, setTransfers] = useState<any[]>([]);
 
   return (
     <div className="space-y-6">
@@ -65,7 +54,7 @@ export const CustodyPage: React.FC = () => {
 
         <div className="p-4 rounded border border-slate-200 bg-white shadow-xs border-l-4 border-l-blue-600">
           <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Active Transfers</div>
-          <div className="text-xl font-bold text-slate-900 font-mono mt-1">{mockTransfers.length} Logged</div>
+          <div className="text-xl font-bold text-slate-900 font-mono mt-1">{transfers.length} Logged</div>
           <div className="text-slate-500 mt-1 font-medium">Signed by Authorized Custodians</div>
         </div>
 
@@ -82,7 +71,7 @@ export const CustodyPage: React.FC = () => {
             Custody Handshake Timeline & Transfer Log
           </h2>
           <span className="text-xs font-semibold text-slate-500">
-            Showing {mockTransfers.length} transfer records
+            Showing {transfers.length} transfer records
           </span>
         </div>
 
@@ -99,31 +88,40 @@ export const CustodyPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-medium bg-white">
-              {mockTransfers.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50">
-                  <td className="p-3 space-y-0.5">
-                    <div className="font-bold text-slate-900">{t.itemTitle}</div>
-                    <div className="font-mono text-[11px] text-slate-500">{t.evidenceNumber}</div>
-                  </td>
-                  <td className="p-3 font-semibold text-slate-800">{t.fromOfficer}</td>
-                  <td className="p-3 font-semibold text-slate-800">{t.toOfficer}</td>
-                  <td className="p-3">
-                    <Badge variant={t.status === 'ACCEPTED' ? 'success' : 'warning'} size="sm">
-                      <ShieldCheck className="w-3 h-3 inline mr-1" />
-                      {t.status}
-                    </Badge>
-                  </td>
-                  <td className="p-3 text-slate-600 italic">{t.reason}</td>
-                  <td className="p-3 text-[11px] text-slate-500 flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-slate-400" />
-                    {new Date(t.timestamp).toLocaleString()}
+              {transfers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-slate-500 italic">
+                    No custody transfers recorded yet. Click "Initiate Custody Transfer" above to register a transfer.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                transfers.map((t) => (
+                  <tr key={t.id} className="hover:bg-slate-50">
+                    <td className="p-3 space-y-0.5">
+                      <div className="font-bold text-slate-900">{t.itemTitle}</div>
+                      <div className="font-mono text-[11px] text-slate-500">{t.evidenceNumber}</div>
+                    </td>
+                    <td className="p-3 font-semibold text-slate-800">{t.fromOfficer}</td>
+                    <td className="p-3 font-semibold text-slate-800">{t.toOfficer}</td>
+                    <td className="p-3">
+                      <Badge variant={t.status === 'ACCEPTED' ? 'success' : 'warning'} size="sm">
+                        <ShieldCheck className="w-3 h-3 inline mr-1" />
+                        {t.status}
+                      </Badge>
+                    </td>
+                    <td className="p-3 text-slate-600 italic">{t.reason}</td>
+                    <td className="p-3 text-[11px] text-slate-500 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-slate-400" />
+                      {new Date(t.timestamp).toLocaleString()}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
 
       <TransferInitiateModal
         isOpen={isInitiateOpen}
@@ -131,8 +129,20 @@ export const CustodyPage: React.FC = () => {
         evidenceNumber="EVID-2026-9041"
         onInitiate={async (toCustodian: string, toOrg: string, reason: string) => {
           await startTransfer('EVID-2026-9041', toCustodian, toOrg, reason);
+          const newTransfer = {
+            id: `trf-${Date.now().toString().slice(-4)}`,
+            evidenceNumber: 'EVID-2026-9041',
+            itemTitle: 'Seized Digital Property',
+            fromOfficer: 'Current Vault Custodian',
+            toOfficer: `${toCustodian} (${toOrg})`,
+            status: 'PENDING',
+            timestamp: new Date().toISOString(),
+            reason,
+          };
+          setTransfers((prev) => [newTransfer, ...prev]);
         }}
       />
+
 
       <TransferAcceptModal
         isOpen={isAcceptOpen}

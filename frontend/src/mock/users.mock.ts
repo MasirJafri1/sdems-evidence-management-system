@@ -18,41 +18,8 @@ export interface MockPermissionRule {
   scope: string;
 }
 
-export const INITIAL_USERS: MockUser[] = [
-  {
-    id: 'usr-001',
-    name: 'Senior Inspector Rajesh Sharma',
-    email: 'r.sharma@cbi.gov.in',
-    designation: 'Lead Cyber Investigator',
-    organization: 'Central Bureau of Investigation',
-    role: 'Investigator Lead',
-    status: 'ACTIVE',
-    permissionsCount: 18,
-    lastLogin: '2026-08-30T09:12:00Z',
-  },
-  {
-    id: 'usr-002',
-    name: 'Dr. Sunita Deshmukh',
-    email: 's.deshmukh@cfsl.gov.in',
-    designation: 'Senior Forensic Analyst',
-    organization: 'Central Forensic Science Laboratory',
-    role: 'Forensic Analyst',
-    status: 'ACTIVE',
-    permissionsCount: 14,
-    lastLogin: '2026-08-29T16:20:00Z',
-  },
-  {
-    id: 'usr-003',
-    name: 'Registrar V. K. Menon',
-    email: 'vk.menon@highcourt.gov.in',
-    designation: 'Judicial Records Registrar',
-    organization: 'High Court Judicial Registry',
-    role: 'Judicial Custodian',
-    status: 'ACTIVE',
-    permissionsCount: 12,
-    lastLogin: '2026-08-28T11:45:00Z',
-  },
-];
+export const INITIAL_USERS: MockUser[] = [];
+
 
 export const INITIAL_PERMISSIONS: MockPermissionRule[] = [
   { id: 'p1', permissionName: 'CASE_VIEW', description: 'View assigned case file records and metadata', effect: 'ALLOW', scope: 'Assigned Cases' },

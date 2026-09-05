@@ -7,15 +7,8 @@ import { FileSpreadsheet, Download, Printer } from 'lucide-react';
 export const ReportsPage: React.FC = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  const reports = [
-    { id: 'rep-1', title: 'Evidence Inventory Report', category: 'Inventory', description: 'Complete catalogue of seized physical items and storage locations.' },
-    { id: 'rep-2', title: 'Chain of Custody Audit Trail', category: 'Forensic Audit', description: 'Sequential transfer history with cryptographic event hashes.' },
-    { id: 'rep-3', title: 'Document Verification Ledger', category: 'Integrity Proof', description: 'SHA-256 fingerprint verification history and smart contract anchors.' },
-    { id: 'rep-4', title: 'Departmental Audit Trail Export', category: 'Compliance', description: 'Full append-only audit event sequence export for legal discovery.' },
-    { id: 'rep-5', title: 'Blockchain Anchors Log', category: 'Ledger Proof', description: 'Keccak-256 transaction hashes, block numbers, and timestamp proofs.' },
-    { id: 'rep-6', title: 'Case Activity Summary', category: 'Executive Brief', description: 'High-level operational overview of active investigation progress.' },
-    { id: 'rep-7', title: 'Access & Permission Matrix Report', category: 'Security Audit', description: 'Detailed report of explicit ABAC ALLOW and DENY rules.' },
-  ];
+  const [reports] = useState<any[]>([]);
+
 
   const handleDownload = (id: string) => {
     setDownloading(id);
@@ -34,30 +27,41 @@ export const ReportsPage: React.FC = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {reports.map((r) => (
-          <Card key={r.id} title={r.title} subtitle={r.category}>
-            <div className="space-y-3 text-xs">
-              <p className="text-slate-600">{r.description}</p>
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                <Badge variant="neutral" size="sm">PDF / CSV Export</Badge>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" leftIcon={<Printer className="w-3.5 h-3.5" />}>Print</Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    isLoading={downloading === r.id}
-                    onClick={() => handleDownload(r.id)}
-                    leftIcon={<Download className="w-3.5 h-3.5" />}
-                  >
-                    Export Certified Report
-                  </Button>
+      {reports.length === 0 ? (
+        <div className="p-8 border border-dashed border-slate-300 bg-slate-50 rounded-lg text-center space-y-2">
+          <FileSpreadsheet className="w-10 h-10 text-slate-400 mx-auto" />
+          <h3 className="text-sm font-bold text-slate-800">No Reports Generated Yet</h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Forensic audit reports and ledger exports will appear here automatically as active cases, documents, and chain-of-custody transfers are recorded.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {reports.map((r) => (
+            <Card key={r.id} title={r.title} subtitle={r.category}>
+              <div className="space-y-3 text-xs">
+                <p className="text-slate-600">{r.description}</p>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <Badge variant="neutral" size="sm">PDF / CSV Export</Badge>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" leftIcon={<Printer className="w-3.5 h-3.5" />}>Print</Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      isLoading={downloading === r.id}
+                      onClick={() => handleDownload(r.id)}
+                      leftIcon={<Download className="w-3.5 h-3.5" />}
+                    >
+                      Export Certified Report
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
+
 };

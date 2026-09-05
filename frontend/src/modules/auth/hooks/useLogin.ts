@@ -29,6 +29,7 @@ export const useLogin = () => {
 
     try {
       const res = await loginApi(input.email, input.password);
+      const isSuperAdmin = res.user.email === 'superadmin@gov.in';
       dispatch(
         setCredentials({
           user: {
@@ -36,11 +37,13 @@ export const useLogin = () => {
             name: res.user.name,
             email: res.user.email,
             isActive: true,
-            organizationId: res.user.organizationId || 'cmtfg5cer0000mh0w2bnhp068',
+            isSuperAdmin,
+            organizationId: isSuperAdmin ? null : (res.user.organizationId || null),
           },
           token: res.token,
         })
       );
+
       toast.success('Identity Authenticated', `Welcome back, ${res.user.name}`);
       navigate(ROUTES.PROTECTED.DASHBOARD);
     } catch (err: any) {

@@ -5,8 +5,15 @@ export interface User {
   name: string;
   email: string;
   isActive: boolean;
+  isSuperAdmin?: boolean;
   organizationId?: string | null;
+  organization?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
 }
+
 
 export interface AuthState {
   user: User | null;

@@ -72,15 +72,17 @@ export async function createCase(req: AuthenticatedRequest, res: Response) {
       organizationId,
       createdById: userId,
       caseNumber: parsed.data.caseNumber,
+      referenceNumber: parsed.data.referenceNumber ?? null,
       title: parsed.data.title,
       description: parsed.data.description,
+      caseType: parsed.data.caseType ?? null,
       participants: {
         create: {
           userId,
           isCaseAdmin: true
         }
       }
-    },
+    } as any,
     include: {
       participants: {
         include: {

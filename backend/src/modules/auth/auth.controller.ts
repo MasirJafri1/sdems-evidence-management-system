@@ -51,6 +51,8 @@ export async function login(req: Request, res: Response) {
     userId: user.id
   });
 
+  const isSuperAdmin = user.email === "superadmin@gov.in";
+
   const membership = await prisma.organizationMembership.findFirst({
     where: { userId: user.id, status: "ACTIVE" }
   });
@@ -61,7 +63,9 @@ export async function login(req: Request, res: Response) {
       id: user.id,
       name: user.name,
       email: user.email,
-      organizationId: membership?.organizationId || null
+      isSuperAdmin,
+      organizationId: isSuperAdmin ? null : (membership?.organizationId || null)
     }
   });
+
 }
