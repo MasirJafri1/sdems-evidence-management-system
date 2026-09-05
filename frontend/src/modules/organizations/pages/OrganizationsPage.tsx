@@ -243,18 +243,30 @@ export const OrganizationsPage: React.FC = () => {
                   <span className="text-slate-500 font-medium">Active Containers:</span>
                   <span className="font-bold text-slate-900">{o.casesCount} Cases</span>
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <Badge variant="success" size="sm">
-                    <ShieldCheck className="w-3 h-3 inline mr-1" />
-                    {o.securityLevel}
-                  </Badge>
-                  <Button
-                    variant={selectedOrgId === o.id ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedOrgId(o.id)}
-                  >
-                    {selectedOrgId === o.id ? 'Viewing Roster' : 'Select Roster'}
-                  </Button>
+                <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="success" size="sm">
+                      <ShieldCheck className="w-3 h-3 inline mr-1" />
+                      {o.securityLevel}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <Button
+                      variant={selectedOrgId === o.id ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => setSelectedOrgId(o.id)}
+                    >
+                      {selectedOrgId === o.id ? 'Viewing Roster' : 'Select Roster'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/cases?orgId=${o.id}`)}
+                      className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                    >
+                      View Cases
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>

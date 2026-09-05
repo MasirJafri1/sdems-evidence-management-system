@@ -17,6 +17,9 @@ export const CasesPage: React.FC = () => {
     setStatusFilter,
     typeFilter,
     setTypeFilter,
+    selectedOrgId,
+    setSelectedOrgId,
+    organizations,
     createNewCase,
   } = useCaseList();
 
@@ -50,6 +53,9 @@ export const CasesPage: React.FC = () => {
           setStatusFilter={setStatusFilter}
           typeFilter={typeFilter}
           setTypeFilter={setTypeFilter}
+          selectedOrgId={selectedOrgId}
+          setSelectedOrgId={setSelectedOrgId}
+          organizations={organizations}
         />
       </div>
 

@@ -119,37 +119,105 @@ export async function getCases(req: AuthenticatedRequest, res: Response) {
   const userId = req.userId!;
   const organizationId = req.params.organizationId as string;
 
-  const membership = await getOrganizationMembership(userId, organizationId);
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId }
+  });
 
-  if (!membership) {
-    res.status(403).json({
-      message: "You are not a member of this organization"
+  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+
+  // 1. Global Super Admin can view ALL cases across ALL organizations
+  if (isSuperAdmin) {
+    const whereClause: any = {};
+    if (organizationId && organizationId !== "all") {
+      whereClause.organizationId = organizationId;
+    }
+
+    const cases = await prisma.case.findMany({
+      where: whereClause,
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            code: true
+          }
+        },
+        _count: {
+          select: {
+            evidence: true,
+            documents: true
+          }
+        },
+        participants: {
+          where: {
+            status: "ACTIVE"
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
     });
+
+    res.json(cases);
     return;
   }
 
-  if (!hasPermission(membership, "CASE_READ")) {
-    res.status(403).json({
-      message: "Missing CASE_READ permission"
-    });
-    return;
+  // 2. Regular User: View cases across enrolled orgs or where user is an active participant
+  const userMemberships = await prisma.organizationMembership.findMany({
+    where: {
+      userId,
+      status: "ACTIVE"
+    },
+    select: {
+      organizationId: true
+    }
+  });
+
+  const enrolledOrgIds = userMemberships.map((m) => m.organizationId);
+
+  let whereClause: any;
+
+  if (organizationId && organizationId !== "all") {
+    whereClause = {
+      organizationId,
+      OR: [
+        { organizationId: { in: enrolledOrgIds } },
+        { participants: { some: { userId, status: "ACTIVE" } } }
+      ]
+    };
+  } else {
+    whereClause = {
+      OR: [
+        { organizationId: { in: enrolledOrgIds } },
+        { participants: { some: { userId, status: "ACTIVE" } } }
+      ]
+    };
   }
 
   const cases = await prisma.case.findMany({
-    where: {
-      organizationId,
-      participants: {
-        some: {
-          userId,
-          status: "ACTIVE"
-        }
-      }
-    },
+    where: whereClause,
     include: {
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          code: true
+        }
+      },
       _count: {
         select: {
           evidence: true,
-          documents: true,
+          documents: true
         }
       },
       participants: {

@@ -5,6 +5,7 @@ export interface AuthorizationResult {
   reason: string;
 
   source?:
+    | "SUPER_ADMIN"
     | "CASE_ADMIN"
     | "CASE_PERMISSION"
     | "ROLE_PERMISSION"

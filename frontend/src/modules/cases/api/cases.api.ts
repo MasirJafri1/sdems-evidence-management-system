@@ -9,6 +9,18 @@ export interface CaseApiRecord {
   caseType: string;
   status: 'Active' | 'Under Review' | 'Pending Verification' | 'Closed' | 'Archived';
   organizationId: string;
+  organization?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  participants?: Array<{
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
   createdAt: string;
   updatedAt: string;
   _count?: {
