@@ -24,7 +24,7 @@ export const RegisterEvidenceModal: React.FC<RegisterEvidenceModalProps> = ({
   const { cases } = useCaseList();
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [title, setTitle] = useState('');
-  const [evidenceType, setEvidenceType] = useState('Mobile Device');
+  const [evidenceType, setEvidenceType] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
   const [storageLocation, setStorageLocation] = useState('CFSL Vault Locker 1A');
 
@@ -73,21 +73,13 @@ export const RegisterEvidenceModal: React.FC<RegisterEvidenceModalProps> = ({
           placeholder="e.g. Seized Samsung Galaxy S22 Work Phone"
         />
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700 uppercase">Evidence Classification</label>
-          <select
-            value={evidenceType}
-            onChange={(e) => setEvidenceType(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-300 rounded text-sm text-slate-800"
-          >
-            <option value="Mobile Device">Mobile Device</option>
-            <option value="Laptop">Laptop</option>
-            <option value="Storage Media">Storage Media</option>
-            <option value="Document">Document</option>
-            <option value="CCTV Recording">CCTV Recording</option>
-            <option value="Physical Item">Physical Item</option>
-          </select>
-        </div>
+        <Input
+          label="Evidence Classification"
+          value={evidenceType}
+          onChange={(e) => setEvidenceType(e.target.value)}
+          required
+          placeholder="e.g. Mobile Device, Handgun, Document"
+        />
 
         <Input
           label="Manufacturer Serial Number"

@@ -6,13 +6,15 @@ import {
   createUser,
   getOrganizationUsers,
   getAllRegisteredOfficers,
-  getAllOrganizations
+  getAllOrganizations,
+  lookupUser
 } from "./organization.controller";
 
 const router = Router();
 
-router.get("/", getAllOrganizations);
-router.get("/officers/all", getAllRegisteredOfficers);
+router.get("/", authenticate, getAllOrganizations);
+router.get("/officers/all", authenticate, getAllRegisteredOfficers);
+router.post("/users/lookup", authenticate, lookupUser);
 router.post("/", createOrganization);
 
 router.post("/:organizationId/roles", authenticate, createRole);
@@ -20,5 +22,3 @@ router.post("/:organizationId/users", authenticate, createUser);
 router.get("/:organizationId/users", authenticate, getOrganizationUsers);
 
 export default router;
-
-

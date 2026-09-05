@@ -1,20 +1,52 @@
 import React, { useState, useEffect } from 'react';
-
 import { useAppSelector } from '../../../store';
 import {
   getOrganizationUsersApi,
   createUserApi,
-  getAllRegisteredOfficersApi,
-  getOrganizationRolesApi,
+  lookupUserApi,
 } from '../../organizations/api/organization.api';
 
 import { PermissionMatrix } from '../components/PermissionMatrix';
 import { INITIAL_PERMISSIONS, type MockUser } from '../../../mock/users.mock';
-import { Users, Building, ShieldCheck, Mail, UserPlus, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users, Building, ShieldCheck, Mail, UserPlus, CheckCircle, AlertCircle, Search, Key } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
+
+const ORG_PERMISSIONS_LIST = [
+  { name: 'CASE_CREATE', label: 'Create Case Containers', category: 'Cases' },
+  { name: 'CASE_READ', label: 'Read Case Records (Org-Wide: Read all cases)', category: 'Cases' },
+  { name: 'CASE_UPDATE', label: 'Update Case Metadata', category: 'Cases' },
+  { name: 'CASE_PARTICIPANT_MANAGE', label: 'Manage Case Participants', category: 'Cases' },
+
+  { name: 'DOCUMENT_UPLOAD', label: 'Upload Evidence Documents', category: 'Documents' },
+  { name: 'DOCUMENT_READ', label: 'Read Document Exhibits', category: 'Documents' },
+  { name: 'DOCUMENT_UPDATE', label: 'Update Document Versions', category: 'Documents' },
+  { name: 'DOCUMENT_DOWNLOAD', label: 'Download Raw Documents', category: 'Documents' },
+  { name: 'DOCUMENT_VERIFY', label: 'Verify Cryptographic Hashes', category: 'Documents' },
+
+  { name: 'EVIDENCE_CREATE', label: 'Register Physical Evidence', category: 'Evidence' },
+  { name: 'EVIDENCE_READ', label: 'Inspect Physical Evidence', category: 'Evidence' },
+  { name: 'EVIDENCE_UPDATE', label: 'Update Physical Evidence', category: 'Evidence' },
+  { name: 'CUSTODY_TRANSFER', label: 'Initiate Custody Transfer', category: 'Evidence' },
+  { name: 'CUSTODY_ACCEPT', label: 'Accept Custody Handshake', category: 'Evidence' },
+  { name: 'CUSTODY_REJECT', label: 'Reject Custody Transfer', category: 'Evidence' },
+  { name: 'CUSTODY_HISTORY_READ', label: 'Read Custody Ledger', category: 'Evidence' },
+
+  { name: 'AUDIT_READ', label: 'Inspect Audit Logs', category: 'Governance' },
+  { name: 'USER_CREATE', label: 'Provision / Enroll Users', category: 'Governance' },
+  { name: 'USER_READ', label: 'View Personnel Roster', category: 'Governance' },
+  { name: 'ROLE_CREATE', label: 'Manage Dynamic Roles', category: 'Governance' },
+  { name: 'ROLE_READ', label: 'View Dynamic Roles', category: 'Governance' },
+];
+
+const DEFAULT_OFFICER_PERMS = [
+  'CASE_CREATE', 'CASE_READ', 'CASE_UPDATE',
+  'DOCUMENT_UPLOAD', 'DOCUMENT_READ', 'DOCUMENT_DOWNLOAD', 'DOCUMENT_VERIFY',
+  'EVIDENCE_CREATE', 'EVIDENCE_READ', 'CUSTODY_TRANSFER', 'CUSTODY_ACCEPT',
+  'AUDIT_READ'
+];
 
 export const UsersPage: React.FC = () => {
   const { user } = useAppSelector((state) => state.auth);
@@ -28,9 +60,14 @@ export const UsersPage: React.FC = () => {
   // New User Form States
   const [enrollMode, setEnrollMode] = useState<'EXISTING' | 'NEW'>('EXISTING');
   const [existingUserId, setExistingUserId] = useState('');
-  const [registeredOfficers, setRegisteredOfficers] = useState<any[]>([]);
-  const [availableRoles, setAvailableRoles] = useState<Array<{ id: string; name: string }>>([]);
-  const [selectedRoleId, setSelectedRoleId] = useState<string>('');
+  const [userLookupQuery, setUserLookupQuery] = useState('');
+  const [searchedUser, setSearchedUser] = useState<any | null>(null);
+  const [isSearchingUser, setIsSearchingUser] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
+  // Role Name & Organization Permissions Checkboxes
+  const [customRoleTitle, setCustomRoleTitle] = useState('Investigating Officer');
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(DEFAULT_OFFICER_PERMS);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -41,9 +78,7 @@ export const UsersPage: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const data = isSuperAdmin
-        ? await getAllRegisteredOfficersApi()
-        : await getOrganizationUsersApi(targetOrgId);
+      const data = await getOrganizationUsersApi(targetOrgId);
 
       if (Array.isArray(data) && data.length > 0) {
         const mapped: MockUser[] = data.map((u: any) => {
@@ -79,37 +114,61 @@ export const UsersPage: React.FC = () => {
 
   useEffect(() => {
     if (isAddUserOpen) {
-      getAllRegisteredOfficersApi()
-        .then((data) => {
-          if (Array.isArray(data)) setRegisteredOfficers(data);
-        })
-        .catch(() => setRegisteredOfficers([]));
-
-      getOrganizationRolesApi(targetOrgId)
-        .then((roles) => {
-          if (Array.isArray(roles) && roles.length > 0) {
-            setAvailableRoles(roles);
-            setSelectedRoleId(roles[0].id);
-          } else {
-            setAvailableRoles([]);
-            setSelectedRoleId('');
-          }
-        })
-        .catch(() => setAvailableRoles([]));
+      setUserLookupQuery('');
+      setSearchedUser(null);
+      setLookupError(null);
+      setExistingUserId('');
+      setCustomRoleTitle('Investigating Officer');
+      setSelectedPermissions(DEFAULT_OFFICER_PERMS);
     }
   }, [isAddUserOpen, targetOrgId]);
+
+  const handleUserLookup = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!userLookupQuery.trim()) {
+      setLookupError('Please enter an Email address or User ID to lookup.');
+      return;
+    }
+
+    setIsSearchingUser(true);
+    setLookupError(null);
+    setSearchedUser(null);
+    setExistingUserId('');
+
+    const res = await lookupUserApi(userLookupQuery.trim());
+    setIsSearchingUser(false);
+
+    if (res.found && res.user) {
+      setSearchedUser(res.user);
+      setExistingUserId(res.user.id);
+    } else {
+      setLookupError(res.message || 'No registered officer found with that Email or User ID.');
+    }
+  };
+
+  const togglePermission = (permName: string) => {
+    setSelectedPermissions((prev) =>
+      prev.includes(permName) ? prev.filter((p) => p !== permName) : [...prev, permName]
+    );
+  };
+
+  const handleSelectAllPerms = () => {
+    setSelectedPermissions(ORG_PERMISSIONS_LIST.map((p) => p.name));
+  };
+
+  const handleClearAllPerms = () => {
+    setSelectedPermissions([]);
+  };
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const activeRoleId = selectedRoleId || (availableRoles.length > 0 ? availableRoles[0].id : undefined);
-
     try {
       if (enrollMode === 'EXISTING') {
         if (!existingUserId) {
-          setErrorMessage('Please select an existing registered global user ID.');
+          setErrorMessage('Please search and verify an existing registered officer by Email or User ID first.');
           setIsSubmitting(false);
           return;
         }
@@ -117,28 +176,31 @@ export const UsersPage: React.FC = () => {
         await createUserApi(targetOrgId, {
           mode: 'EXISTING',
           existingUserId,
-          roleId: activeRoleId,
+          roleName: customRoleTitle,
+          permissions: selectedPermissions,
         });
 
-        const selectedOfficer = registeredOfficers.find((o) => o.id === existingUserId);
-        const officerName = selectedOfficer?.name || `User ID: ${existingUserId}`;
-        setSuccessMessage(`✅ Existing global user "${officerName}" enrolled into organization!`);
+        const officerName = searchedUser?.name || `User ID: ${existingUserId}`;
+        setSuccessMessage(`✅ Existing officer "${officerName}" successfully enrolled into organization with role "${customRoleTitle}"!`);
       } else {
         await createUserApi(targetOrgId, {
           mode: 'NEW',
           name,
           email,
           password,
-          roleId: activeRoleId,
+          roleName: customRoleTitle,
+          permissions: selectedPermissions,
         });
 
-        setSuccessMessage(`✅ New officer "${name}" (${email}) provisioned successfully!`);
+        setSuccessMessage(`✅ New officer "${name}" (${email}) provisioned successfully with role "${customRoleTitle}"!`);
       }
 
       fetchUsers();
       setName('');
       setEmail('');
       setExistingUserId('');
+      setUserLookupQuery('');
+      setSearchedUser(null);
       setPassword('Password123!');
       setIsAddUserOpen(false);
     } catch (err: any) {
@@ -159,7 +221,7 @@ export const UsersPage: React.FC = () => {
             User Administration & Personnel Roster
           </h1>
           <p className="text-xs text-slate-600 mt-0.5">
-            Manage officer user accounts, enroll existing global users by ID, and inspect RBAC permission boundaries.
+            Manage officer user accounts, search & enroll existing global officers by Email/ID, and assign custom roles with permission checkboxes.
           </p>
         </div>
 
@@ -262,7 +324,6 @@ export const UsersPage: React.FC = () => {
                 ))
               )}
             </tbody>
-
           </table>
         </div>
       ) : (
@@ -274,7 +335,7 @@ export const UsersPage: React.FC = () => {
         isOpen={isAddUserOpen}
         onClose={() => setIsAddUserOpen(false)}
         title="Add Officer / Enroll Global User into Organization"
-        maxWidth="md"
+        maxWidth="lg"
       >
         <form onSubmit={handleAddUser} className="space-y-4 text-xs">
           {/* Enroll Mode Toggle */}
@@ -286,7 +347,7 @@ export const UsersPage: React.FC = () => {
                 enrollMode === 'EXISTING' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'
               }`}
             >
-              Enroll Existing Global User (By User ID)
+              Enroll Existing Global User (Search by Email/ID)
             </button>
             <button
               type="button"
@@ -302,48 +363,60 @@ export const UsersPage: React.FC = () => {
           {enrollMode === 'EXISTING' ? (
             <div className="space-y-3">
               <div className="p-3 bg-blue-50 border border-blue-200 rounded text-blue-900 text-[11px]">
-                <strong>Enroll User from another Org or Unassigned User:</strong> You can select any existing officer (from another organization or an unassigned user) by their User ID/Email to enroll them into this organization.
+                <strong>Zero-Trust Officer Lookup:</strong> For privacy & security, global user rosters are invisible. Enter the target officer's exact Email or User ID to lookup and enroll them.
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700 uppercase">
-                  Select User from another Org or Unassigned User *
+              {/* Direct Search/Lookup Input */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase">
+                  Search Officer by Email or User ID *
                 </label>
-                <select
-                  value={existingUserId}
-                  onChange={(e) => setExistingUserId(e.target.value)}
-                  className="px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-800"
-                  required
-                >
-                  <option value="">-- Choose User from another Org / Unassigned User --</option>
-                  {registeredOfficers
-                    .filter((o) => {
-                      const isAlreadyInTarget = o.memberships?.some(
-                        (m: any) => m.organizationId === targetOrgId || m.organization?.id === targetOrgId
-                      );
-                      return !isAlreadyInTarget;
-                    })
-                    .map((o) => {
-                      const orgName =
-                        o.memberships && o.memberships.length > 0
-                          ? o.memberships.map((m: any) => m.organization?.name || m.organization?.code).join(', ')
-                          : 'Unassigned User';
-
-                      return (
-                        <option key={o.id} value={o.id}>
-                          {o.name} ({o.email}) — [{orgName}] — ID: {o.id}
-                        </option>
-                      );
-                    })}
-                </select>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. priya.sharma@ed.gov.in or cm123abc..."
+                    value={userLookupQuery}
+                    onChange={(e) => setUserLookupQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleUserLookup();
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800 font-medium"
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleUserLookup}
+                    isLoading={isSearchingUser}
+                    leftIcon={<Search className="w-3.5 h-3.5" />}
+                  >
+                    Lookup
+                  </Button>
+                </div>
               </div>
 
-              <Input
-                label="Or Enter Exact User ID manually"
-                placeholder="e.g. cm123abc..."
-                value={existingUserId}
-                onChange={(e) => setExistingUserId(e.target.value)}
-              />
+              {/* Lookup Result Box */}
+              {searchedUser && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded space-y-1 text-xs text-emerald-950 font-medium">
+                  <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    Officer Verified: {searchedUser.name} ({searchedUser.email})
+                  </div>
+                  <div className="text-[11px] text-emerald-700 font-mono">
+                    User ID: {searchedUser.id}
+                  </div>
+                </div>
+              )}
+
+              {lookupError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-900 font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{lookupError}</span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -376,32 +449,71 @@ export const UsersPage: React.FC = () => {
                 placeholder="••••••••••••"
                 required
               />
+            </div>
+          )}
 
-          <div className="flex flex-col gap-1 pt-2 border-t border-slate-200">
-            <label className="text-xs font-semibold text-slate-700 uppercase">
-              Assign Organization Role (Dynamic) *
-            </label>
-            <select
-              value={selectedRoleId}
-              onChange={(e) => setSelectedRoleId(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-800 font-medium"
-            >
-              {availableRoles.length > 0 ? (
-                availableRoles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))
-              ) : (
-                <option value="">Organization Admin / Officer (Default)</option>
-              )}
-            </select>
-            <span className="text-[11px] text-slate-500">
-              Select from available organization roles or default administrative permissions.
-            </span>
+          {/* Custom Free-Text Role Title */}
+          <div className="pt-2 border-t border-slate-200 space-y-3">
+            <Input
+              label="Role Title / Designation (Free-Text Input) *"
+              value={customRoleTitle}
+              onChange={(e) => setCustomRoleTitle(e.target.value)}
+              placeholder="e.g. Investigating Officer, Senior Forensic Lead, Org Admin..."
+              required
+            />
+
+            {/* Organization Permission Checkboxes Grid */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                  <Key className="w-4 h-4 text-indigo-600" />
+                  Organization-Level Permission Checkboxes ({selectedPermissions.length} selected)
+                </label>
+                <div className="flex gap-2 text-[10px]">
+                  <button type="button" onClick={handleSelectAllPerms} className="text-indigo-600 font-bold hover:underline">
+                    Select All
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button type="button" onClick={handleClearAllPerms} className="text-slate-500 font-bold hover:underline">
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded max-h-56 overflow-y-auto space-y-3">
+                {['Cases', 'Documents', 'Evidence', 'Governance'].map((cat) => (
+                  <div key={cat} className="space-y-1.5">
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-0.5">
+                      {cat} Operations
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {ORG_PERMISSIONS_LIST.filter((p) => p.category === cat).map((p) => {
+                        const isChecked = selectedPermissions.includes(p.name);
+                        return (
+                          <label
+                            key={p.name}
+                            className={`flex items-center gap-2 p-2 rounded border transition-colors cursor-pointer text-xs ${
+                              isChecked
+                                ? 'bg-indigo-50/80 border-indigo-300 text-indigo-950 font-semibold'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => togglePermission(p.name)}
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                            />
+                            <span>{p.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
 
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
             <Button type="button" variant="outline" onClick={() => setIsAddUserOpen(false)}>

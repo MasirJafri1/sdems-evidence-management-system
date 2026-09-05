@@ -5,7 +5,11 @@ import {
   getCases,
   getCase,
   addParticipant,
-  getParticipants
+  getParticipants,
+  requestCaseAccess,
+  listCaseAccessRequests,
+  resolveCaseAccessRequest,
+  verifyCase
 } from "./case.controller";
 
 const router = Router();
@@ -15,5 +19,10 @@ router.get("/organizations/:organizationId/cases", authenticate, getCases);
 router.get("/cases/:caseId", authenticate, getCase);
 router.post("/cases/:caseId/participants", authenticate, addParticipant);
 router.get("/cases/:caseId/participants", authenticate, getParticipants);
+
+router.post("/cases/access-requests", authenticate, requestCaseAccess);
+router.get("/cases/:caseId/access-requests", authenticate, listCaseAccessRequests);
+router.post("/cases/access-requests/:id/resolve", authenticate, resolveCaseAccessRequest);
+router.get("/cases/verify/:caseNumber", authenticate, verifyCase);
 
 export default router;

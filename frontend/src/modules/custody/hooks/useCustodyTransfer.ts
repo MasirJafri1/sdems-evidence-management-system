@@ -10,9 +10,9 @@ export const useCustodyTransfer = () => {
   const startTransfer = async (evidenceId: string, toUserId: string, toOrganizationId: string, reason: string) => {
     setIsLoading(true);
     try {
-      await initiateTransferApi(evidenceId, { toUserId, toOrganizationId, reason });
+      const result = await initiateTransferApi(evidenceId, { toUserId, toOrganizationId, reason });
       toast.security('Handshake Logged', `Physical custody transfer request logged in PENDING state.`);
-      return { success: true };
+      return { success: true, transfer: result.transfer };
     } catch (err: any) {
       const mapped = mapApiError(err);
       toast.error('Transfer Request Failed', mapped);
@@ -37,10 +37,10 @@ export const useCustodyTransfer = () => {
     }
   };
 
-  const rejectTransfer = async (transferId: string) => {
+  const rejectTransfer = async (transferId: string, reason: string) => {
     setIsLoading(true);
     try {
-      await rejectTransferApi(transferId);
+      await rejectTransferApi(transferId, reason);
       toast.info('Transfer Declined', `Custody transfer request rejected.`);
       return { success: true };
     } catch (err: any) {

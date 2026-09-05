@@ -4,6 +4,7 @@ import { CasesTable } from '../components/CasesTable';
 import { CaseFilters } from '../components/CaseFilters';
 import { CaseSearch } from '../components/CaseSearch';
 import { CreateCaseModal } from '../components/CreateCaseModal';
+import { RequestCaseAccessModal } from '../components/RequestCaseAccessModal';
 import { Button } from '../../../components/ui/Button';
 import { FolderPlus } from 'lucide-react';
 
@@ -24,6 +25,7 @@ export const CasesPage: React.FC = () => {
   } = useCaseList();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRequestAccessOpen, setIsRequestAccessOpen] = useState(false);
 
   return (
     <div className="space-y-5">
@@ -37,13 +39,21 @@ export const CasesPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          onClick={() => setIsModalOpen(true)}
-          leftIcon={<FolderPlus className="w-4 h-4" />}
-        >
-          Initialize New Case
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsRequestAccessOpen(true)}
+          >
+            Request External Access
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => setIsModalOpen(true)}
+            leftIcon={<FolderPlus className="w-4 h-4" />}
+          >
+            Initialize New Case
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded border border-slate-200">
@@ -65,6 +75,11 @@ export const CasesPage: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={(c) => createNewCase(c as any)}
+      />
+
+      <RequestCaseAccessModal
+        isOpen={isRequestAccessOpen}
+        onClose={() => setIsRequestAccessOpen(false)}
       />
     </div>
   );

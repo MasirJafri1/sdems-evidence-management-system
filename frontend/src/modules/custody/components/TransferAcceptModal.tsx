@@ -7,43 +7,49 @@ import { CheckCircle2, XCircle } from 'lucide-react';
 interface TransferAcceptModalProps {
   isOpen: boolean;
   onClose: () => void;
+  transfer?: any;
   onAccept?: (transferId: string) => void;
-  onReject?: (transferId: string) => void;
+  onReject?: (transferId: string, reason: string) => void;
 }
 
 export const TransferAcceptModal: React.FC<TransferAcceptModalProps> = ({
   isOpen,
   onClose,
+  transfer,
   onAccept,
   onReject,
 }) => {
-  const [transferId, setTransferId] = useState('trf-001');
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const handleAccept = () => {
-    onAccept?.(transferId);
+    if (transfer?.id) onAccept?.(transfer.id);
     onClose();
   };
 
   const handleReject = () => {
-    onReject?.(transferId);
+    if (!rejectionReason.trim()) {
+      alert("Please provide a rejection reason before declining.");
+      return;
+    }
+    if (transfer?.id) onReject?.(transfer.id, rejectionReason);
     onClose();
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Accept Pending Custody Handshake" maxWidth="md">
       <div className="space-y-4 text-xs">
-        <Input
-          label="Transfer Reference / Ticket ID"
-          value={transferId}
-          onChange={(e) => setTransferId(e.target.value)}
-          required
-        />
-
         <div className="p-3 bg-slate-50 border rounded space-y-1">
-          <div className="font-bold text-slate-900">Seized Dell Latitude Forensic Workstation</div>
-          <div className="text-slate-600">Relinquishing Officer: Sub-Inspector Anil Kumar (CBI)</div>
-          <div className="text-slate-500 italic">Purpose: Forensic drive extraction and hash computation</div>
+          <div className="font-bold text-slate-900">{transfer?.itemTitle || 'Evidence Item'} ({transfer?.evidenceNumber})</div>
+          <div className="text-slate-600">Relinquishing Officer: {transfer?.fromOfficer || 'Unknown'}</div>
+          <div className="text-slate-500 italic">Purpose: {transfer?.reason || 'No reason provided'}</div>
         </div>
+
+        <Input
+          label="Rejection Reason (Required if declining)"
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+          placeholder="e.g. Seal compromised, item not matched"
+        />
 
         <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
           <Button

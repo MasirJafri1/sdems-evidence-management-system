@@ -16,6 +16,38 @@ It provides operational rules on **when and why** to perform core actions (creat
 
 ---
 
+## ⚡ Environment Initialization, Local Blockchain & Database Seeding
+
+Before beginning your test demonstration, launch the background services in separate terminal windows:
+
+### 1. 🔗 Start Local Ethereum Blockchain Node & Smart Contracts
+Run in `backend` folder to launch local Hardhat node and deploy the evidence ledger contract:
+```bash
+# Terminal 1: Start local Ethereum node
+npm run blockchain:node
+
+# Terminal 2: Deploy smart contracts to local network
+npm run blockchain:deploy
+```
+
+### 2. 🧹 Seed Fresh Database & Global Super Admin
+Run in `backend` folder to clear existing tables and seed a fresh Super Admin account:
+```bash
+node prisma/seed.js
+```
+*Creates Super Admin*: Email: `superadmin@gov.in` | Password: `Password123!`
+
+### 3. 🚀 Launch Backend REST API & Frontend Web Portal
+```bash
+# Backend (in /backend directory)
+npm run dev
+
+# Frontend (in /frontend directory)
+npm run dev
+```
+
+---
+
 ## 🧭 Operational Governance & System Rules
 
 Before executing test scenarios, understand the key operational workflows, design principles, and criteria for each system feature.
@@ -49,17 +81,25 @@ flowchart TD
 
 ---
 
-### 2. 🔑 When to Add User Credentials & Manage Roles
+### 2. 🔑 When to Add User Credentials & Manage Roles & Permissions
 - **Operational Criterion**: Add credentials or enroll users whenever an officer, analyst, or administrator requires system access.
 - **Two User Onboarding Modes**:
   1. **Provision New User Account** *(When onboarding a brand new officer to your organization)*:
      - Used when an officer does not exist anywhere in the global system directory.
-     - Automatically provisions full credentials (Email, Password) and assigns a dynamic dynamic role (e.g., `Investigating Officer`, `Forensic Analyst`, `Organization Admin`).
-  2. **Enroll Existing Global User by User ID** *(When forming multi-agency joint task forces or assigning cross-org advisors)*:
+     - Provisions credentials (Email, Password), accepts a **Free-Text Role Title Input** (e.g., `Investigating Officer`, `Cyber Forensic Lead`), and allows selecting specific **Organization-Level Permission Checkboxes**.
+  2. **Enroll Existing Global User (Search by Email/ID)** *(When forming multi-agency joint task forces or assigning cross-org advisors)*:
      - Used when an officer already has an account registered in another organization or is an unassigned global specialist.
-     - Uses the target user's **User ID** (`cm...`) to grant them membership and a role within the current organization without duplicating credentials or creating redundant accounts.
-- **Dynamic Role Management**:
-  - Roles are fetched dynamically from the database (`GET /api/v1/organizations/:organizationId/roles`), eliminating hardcoded role IDs (like `c1`).
+     - For Zero-Trust privacy, bulk user directory browsing is disabled. Uses exact **Email Address or User ID Lookup** (`cm...`) to locate and verify the officer before enrolling them into the organization with custom role titles and permission checkboxes.
+
+- **System Permission Architecture (4 Categorized Operation Groups)**:
+  - 📁 **Cases Operations**: `Create Case Containers` (`CASE_CREATE`), `Read Case Records` (`CASE_READ`), `Update Case Metadata` (`CASE_UPDATE`), `Manage Case Participants` (`CASE_PARTICIPANT_MANAGE`).
+  - 📄 **Documents Operations**: `Upload Evidence Documents` (`DOCUMENT_UPLOAD`), `Read Document Exhibits` (`DOCUMENT_READ`), `Update Document Versions` (`DOCUMENT_UPDATE`), `Download Raw Documents` (`DOCUMENT_DOWNLOAD`), `Verify Cryptographic Hashes` (`DOCUMENT_VERIFY`).
+  - 🏷️ **Evidence Operations**: `Register Physical Evidence` (`EVIDENCE_CREATE`), `Inspect Physical Evidence` (`EVIDENCE_READ`), `Update Physical Evidence` (`EVIDENCE_UPDATE`), `Initiate Custody Transfer` (`CUSTODY_TRANSFER`), `Accept Custody Handshake` (`CUSTODY_ACCEPT`), `Reject Custody Transfer` (`CUSTODY_REJECT`), `Read Custody Ledger` (`CUSTODY_HISTORY_READ`).
+  - ⚙️ **Governance Operations**: `Inspect Audit Logs` (`AUDIT_READ`), `Provision / Enroll Users` (`USER_CREATE`), `View Personnel Roster` (`USER_READ`), `Manage Dynamic Roles` (`ROLE_CREATE`), `View Dynamic Roles` (`ROLE_READ`).
+
+- **Dual Scope Enforcement (Org-Level General Settings vs Case-Level Container Permissions)**:
+  - 🏢 **Organization-Level General Settings** *(Configured in Users Page)*: Grants organization-wide capabilities (e.g., granting `CASE_READ` at org level allows reading **all** cases in that organization, and Governance Operations apply organization-wide).
+  - 📦 **Case-Level Container Permissions** *(Configured in Case Details Page Modal)*: Grants granular container-level permissions restricted strictly to that specific case file (Cases, Documents, and Evidence operations for that specific case container).
 
 ---
 
@@ -179,17 +219,21 @@ sequenceDiagram
    - **Officer Full Name**: `Inspector Ramesh Varma`
    - **Official Email**: `ramesh.varma@cbi.gov.in`
    - **Password**: `Password123!`
-   - **Assign Dynamic Role**: Select `Investigating Officer` (dynamically loaded from backend roles API).
+   - **Role Title / Designation (Free-Text Input)**: Type custom title `Investigating Officer` *(No dropdown restriction!)*
+   - **Organization-Level Permission Checkboxes**: Select specific permission checkboxes (`CASE_CREATE`, `CASE_READ`, `DOCUMENT_UPLOAD`, `EVIDENCE_CREATE`, `CUSTODY_TRANSFER`, `AUDIT_READ`).
 4. Click **Provision New Account**.
-   - *Expected Outcome*: `Inspector Ramesh Varma` appears in the CBI roster table.
+   - *Expected Outcome*: `Inspector Ramesh Varma` appears in the CBI roster table with custom permissions.
 
-#### **User Story 2.3: Enroll Existing Global User by User ID**
+#### **User Story 2.3: Enroll Existing Global User (Email/ID Search & Org Checkboxes)**
 1. Click **Add Officer / User** again.
-2. Select **Enroll Existing Global User (By User ID)** tab.
-3. Select from dropdown or paste User ID for **Director Priya Sharma** (`priya.sharma@ed.gov.in`).
-4. Select **Assign Organization Role**: `Investigating Officer` / `Special Advisor`.
-5. Click **Enroll Officer into Org**.
-   - *Expected Outcome*: Green success toast (`✅ Existing global user enrolled into organization!`); Priya Sharma is granted dual membership in CBI.
+2. Select **Enroll Existing Global User (Search by Email/ID)** tab.
+3. *Notice Zero-Trust Privacy*: Bulk user directory browsing is disabled. No dropdown menu listing all global users is shown to Org Admins.
+4. Type exact Email address `priya.sharma@ed.gov.in` (or User ID) for **Director Priya Sharma** in the search input and click **Lookup**.
+5. *Verification Card*: System verifies identity and displays green confirmation card (`✅ Officer Verified: Director Priya Sharma (priya.sharma@ed.gov.in)`).
+6. **Role Title / Designation (Free-Text Input)**: Type custom title `Special Advisor / Joint Investigator`.
+7. **Organization-Level Permission Checkboxes**: Select organizational permissions to grant (`CASE_READ`, `DOCUMENT_READ`, `DOCUMENT_VERIFY`, `AUDIT_READ`).
+8. Click **Enroll Officer into Org**.
+   - *Expected Outcome*: Green success toast (`✅ Existing officer "Director Priya Sharma" successfully enrolled into organization!`); Priya Sharma is granted dual membership in CBI with custom role permissions.
 
 ---
 
@@ -207,6 +251,14 @@ sequenceDiagram
 7. Fill **Case Description**: `Joint investigation into compromised banking servers and forensic disk dumps.`
 8. Click **Initialize Case File**.
    - *Expected Outcome*: Case container is created, stored in PostgreSQL DB, and displayed in the Cases table.
+
+#### **User Story 3.2: Add Case Participant with Case-Level Permission Checkboxes**
+1. On the Case Details page (`/cases/CBI-OFT-...`), click **Add Case Participant** (top right button or under Participants card).
+2. Type exact Email address `ramesh.varma@cbi.gov.in` (or User ID) for **Inspector Ramesh Varma** in the search input and click **Lookup**.
+3. *Verification Card*: System verifies identity and displays green confirmation card (`✅ Officer Verified: Inspector Ramesh Varma`).
+4. **Case-Level Permission Checkboxes**: Select granular case permissions to grant specifically for this case file (`CASE_READ`, `DOCUMENT_READ`, `DOCUMENT_UPLOAD`, `DOCUMENT_DOWNLOAD`, `EVIDENCE_READ`, `CUSTODY_TRANSFER`, `AUDIT_READ`).
+5. Click **Grant Case Access & Add Participant**.
+   - *Expected Outcome*: Ramesh Varma is assigned as an active participant on this case container with explicit case-level permissions.
 
 ---
 
@@ -301,8 +353,8 @@ sequenceDiagram
 ## 📋 Comprehensive Verification Checklist
 
 - [x] **Act 1: System Bootstrapping** — Super Admin bootstrapped CBI (`anil.kumar@cbi.gov.in`) and ED (`priya.sharma@ed.gov.in`).
-- [x] **Act 2: Credentials & Enrollment** — Provisioned brand new user `Inspector Ramesh Varma` and enrolled existing global user `Priya Sharma` by User ID with dynamic roles.
-- [x] **Act 3: Case Container** — Auto-generated Global Case ID (`CBI-OFT-...`), Dept Reference No (`CBI/OFT/...`), free-text Case Type, and no priority selector.
+- [x] **Act 2: Credentials & Enrollment** — Provisioned officer `Ramesh Varma` and enrolled `Priya Sharma` via Email/ID lookup, using free-text role titles and organization-level permission checkboxes.
+- [x] **Act 3: Case Container & Permissions** — Auto-generated Global Case ID (`CBI-OFT-...`), Dept Ref No (`CBI/OFT/...`), free-text Case Type, and assigned case participants with case-level permission checkboxes.
 - [x] **Act 4: Evidence Storage** — Uploaded file to AWS S3 bucket and anchored SHA-256 fingerprint on Ethereum blockchain.
 - [x] **Act 5: Physical Custody** — Executed 2-party handshake transfer from Anil Kumar to Ramesh Varma.
 - [x] **Act 6: Access Requests** — Submitted cross-agency access request from ED to CBI case and approved it under Zero-Trust workflow.

@@ -285,33 +285,60 @@ export async function createUser(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  const { mode, existingUserId, name, email, password, roleId } = parsed.data;
+  const { mode, existingUserId, name, email, password, roleId, roleName, permissions } = parsed.data;
 
-  // Resolve Role for target organization (fallback to first role if needed)
-  let role = await prisma.role.findFirst({
-    where: {
-      id: roleId,
-      organizationId
-    }
-  });
+  // Resolve or create Custom Role with dynamic permissions
+  let role: any = null;
+  const targetRoleName = roleName && roleName.trim() ? roleName.trim() : "Investigating Officer";
 
-  if (!role) {
+  if (roleId) {
     role = await prisma.role.findFirst({
-      where: { organizationId }
+      where: {
+        id: roleId,
+        organizationId
+      }
     });
   }
 
   if (!role) {
-    const allPermissions = await prisma.permission.findMany({});
+    role = await prisma.role.findFirst({
+      where: {
+        organizationId,
+        name: targetRoleName
+      }
+    });
+  }
+
+  if (!role) {
+    let permRecords: any[] = [];
+    if (permissions && Array.isArray(permissions) && permissions.length > 0) {
+      permRecords = await prisma.permission.findMany({
+        where: { name: { in: permissions } }
+      });
+    } else {
+      permRecords = await prisma.permission.findMany({});
+    }
+
     role = await prisma.role.create({
       data: {
-        name: "Organization Admin",
-        description: "Administrative authority role",
+        name: targetRoleName,
+        description: `Custom organization role: ${targetRoleName}`,
         organizationId,
         permissions: {
-          create: allPermissions.map((p) => ({ permissionId: p.id }))
+          create: permRecords.map((p) => ({ permissionId: p.id }))
         }
       }
+    });
+  } else if (permissions && Array.isArray(permissions) && permissions.length > 0) {
+    // Sync permissions if explicit checkboxes were passed
+    const permRecords = await prisma.permission.findMany({
+      where: { name: { in: permissions } }
+    });
+    await prisma.rolePermission.deleteMany({
+      where: { roleId: role.id }
+    });
+    await prisma.rolePermission.createMany({
+      data: permRecords.map((p) => ({ roleId: role.id, permissionId: p.id }))
     });
   }
 
@@ -496,8 +523,64 @@ export async function getOrganizationUsers(
 }
 
 
-export async function getAllRegisteredOfficers(_req: Request, res: Response) {
+export async function lookupUser(req: AuthenticatedRequest, res: Response) {
   try {
+    const { query } = req.body;
+    if (!query || typeof query !== "string" || !query.trim()) {
+      res.status(400).json({ found: false, message: "Email or User ID is required for lookup" });
+      return;
+    }
+
+    const trimmed = query.trim();
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: { equals: trimmed, mode: "insensitive" } },
+          { id: trimmed }
+        ]
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isActive: true,
+        memberships: {
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      res.status(404).json({ found: false, message: "No registered officer found with that Email or User ID." });
+      return;
+    }
+
+    res.json({ found: true, user });
+  } catch (error: any) {
+    res.status(500).json({ found: false, message: "Failed to perform user lookup" });
+  }
+}
+
+export async function getAllRegisteredOfficers(req: AuthenticatedRequest, res: Response) {
+  try {
+    const userId = req.userId;
+    const currentUser = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null;
+    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+
+    if (!isSuperAdmin) {
+      res.status(403).json({ message: "Access denied. Global directory browsing is disabled. Search users by Email or ID." });
+      return;
+    }
+
     const users = await prisma.user.findMany({
       where: {
         isActive: true
@@ -530,9 +613,28 @@ export async function getAllRegisteredOfficers(_req: Request, res: Response) {
   }
 }
 
-export async function getAllOrganizations(_req: Request, res: Response) {
+export async function getAllOrganizations(req: AuthenticatedRequest, res: Response) {
   try {
+    const userId = req.userId;
+    let isSuperAdmin = false;
+
+    if (userId) {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+      isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+    }
+
+    const whereClause: any = {};
+    if (!isSuperAdmin && userId) {
+      whereClause.memberships = {
+        some: {
+          userId,
+          status: "ACTIVE"
+        }
+      };
+    }
+
     const orgs = await prisma.organization.findMany({
+      where: whereClause,
       include: {
         memberships: {
           include: {

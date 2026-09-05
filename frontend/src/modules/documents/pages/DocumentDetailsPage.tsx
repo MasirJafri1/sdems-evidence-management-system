@@ -3,16 +3,23 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
-import { ArrowLeft, Download, ShieldCheck, Fingerprint, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Download, ShieldCheck, Fingerprint, ExternalLink, GitCommit } from 'lucide-react';
 import { ROUTES } from '../../../config/routes.config';
 import { useAppSelector } from '../../../store';
-import { downloadDocumentVersionApi } from '../api/documents.api';
+import { apiClient } from '../../../config/axios.config';
+import { TransferInitiateModal } from '../../custody/components/TransferInitiateModal';
+import { useCustodyTransfer } from '../../custody/hooks/useCustodyTransfer';
 
 export const DocumentDetailsPage: React.FC = () => {
   const { documentId } = useParams<{ documentId: string }>();
   const navigate = useNavigate();
   const [isVerifying, setIsVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  
+  const [isInitiateOpen, setIsInitiateOpen] = useState(false);
+  const { startTransfer } = useCustodyTransfer();
 
   const { documents } = useAppSelector((state) => state.documents);
 
@@ -45,10 +52,49 @@ export const DocumentDetailsPage: React.FC = () => {
     }, 600);
   };
 
-  const handleDownload = () => {
-    if (doc.id) {
-      const downloadUrl = downloadDocumentVersionApi(doc.id, '1');
-      window.open(downloadUrl, '_blank');
+  const handleDownload = async () => {
+    if (!doc.id) return;
+    setIsDownloading(true);
+    setDownloadError(null);
+    try {
+      // Proxy the download through our backend to bypass S3 CORS issues
+      const response = await apiClient.get(
+        `/documents/${doc.id}/versions/1/download?stream=true`,
+        { responseType: 'blob' }
+      );
+      
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Get the exact original filename from the backend's header
+      const disposition = response.headers['content-disposition'];
+      const filename = disposition
+        ? disposition.split('filename=')[1]?.replace(/"/g, '') || doc.documentName || 'evidence_file'
+        : doc.documentName || 'evidence_file';
+        
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      // If it's a blob error, we need to extract the JSON message
+      if (err.response?.data instanceof Blob) {
+        const text = await err.response.data.text();
+        try {
+          const json = JSON.parse(text);
+          setDownloadError(json.message || 'Download failed.');
+        } catch {
+          setDownloadError('Download failed.');
+        }
+      } else {
+        setDownloadError(err?.response?.data?.message || err.message || 'Download failed. Check your permissions.');
+      }
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -61,6 +107,13 @@ export const DocumentDetailsPage: React.FC = () => {
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Documents Binder
         </button>
+
+      {downloadError && (
+        <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded text-xs text-red-900 font-medium flex items-center gap-2">
+          <span className="font-bold">⚠ Download Error:</span> {downloadError}
+          <button onClick={() => setDownloadError(null)} className="ml-auto text-red-600 font-bold">✕</button>
+        </div>
+      )}
 
         <div className="p-5 rounded border border-slate-300 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
           <div>
@@ -82,9 +135,18 @@ export const DocumentDetailsPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={handleDownload}
+              isLoading={isDownloading}
               leftIcon={<Download className="w-3.5 h-3.5" />}
             >
-              Download Binary
+              {isDownloading ? 'Downloading...' : 'Download Binary'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsInitiateOpen(true)}
+              leftIcon={<GitCommit className="w-3.5 h-3.5" />}
+            >
+              Transfer Custody
             </Button>
             <Button
               variant="primary"
@@ -165,6 +227,16 @@ export const DocumentDetailsPage: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      <TransferInitiateModal
+        isOpen={isInitiateOpen}
+        onClose={() => setIsInitiateOpen(false)}
+        evidenceId={doc.id}
+        isDocument={true}
+        onInitiate={async (evNumber: string, toCustodian: string, toOrg: string, reason: string) => {
+          await startTransfer(evNumber, toCustodian, toOrg, reason);
+        }}
+      />
     </div>
   );
 };

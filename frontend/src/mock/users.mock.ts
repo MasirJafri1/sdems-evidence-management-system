@@ -12,7 +12,7 @@ export interface MockUser {
 
 export interface MockPermissionRule {
   id: string;
-  permissionName: 'CASE_VIEW' | 'CASE_CREATE' | 'DOCUMENT_VIEW' | 'DOCUMENT_UPLOAD' | 'DOCUMENT_DOWNLOAD' | 'EVIDENCE_VIEW' | 'EVIDENCE_REGISTER' | 'CUSTODY_TRANSFER' | 'AUDIT_VIEW' | 'BLOCKCHAIN_VERIFY';
+  permissionName: string;
   description: string;
   effect: 'ALLOW' | 'DENY' | 'INHERITED';
   scope: string;
@@ -20,16 +20,33 @@ export interface MockPermissionRule {
 
 export const INITIAL_USERS: MockUser[] = [];
 
-
 export const INITIAL_PERMISSIONS: MockPermissionRule[] = [
-  { id: 'p1', permissionName: 'CASE_VIEW', description: 'View assigned case file records and metadata', effect: 'ALLOW', scope: 'Assigned Cases' },
-  { id: 'p2', permissionName: 'CASE_CREATE', description: 'Initialize new official investigative case file', effect: 'ALLOW', scope: 'Organization' },
-  { id: 'p3', permissionName: 'DOCUMENT_VIEW', description: 'View digital forensic document metadata and history', effect: 'ALLOW', scope: 'Assigned Cases' },
-  { id: 'p4', permissionName: 'DOCUMENT_UPLOAD', description: 'Upload binary file versions and compute SHA-256', effect: 'ALLOW', scope: 'Assigned Cases' },
-  { id: 'p5', permissionName: 'DOCUMENT_DOWNLOAD', description: 'Stream or download raw forensic document binaries', effect: 'ALLOW', scope: 'Assigned Cases' },
-  { id: 'p6', permissionName: 'EVIDENCE_VIEW', description: 'Inspect physical evidence registry items', effect: 'ALLOW', scope: 'Assigned Cases' },
-  { id: 'p7', permissionName: 'EVIDENCE_REGISTER', description: 'Register new seized physical evidence item', effect: 'ALLOW', scope: 'Assigned Cases' },
-  { id: 'p8', permissionName: 'CUSTODY_TRANSFER', description: 'Initiate and accept physical custody transfers', effect: 'ALLOW', scope: 'Assigned Custodian' },
-  { id: 'p9', permissionName: 'AUDIT_VIEW', description: 'Inspect append-only sequence audit hash logs', effect: 'ALLOW', scope: 'Organization' },
-  { id: 'p10', permissionName: 'BLOCKCHAIN_VERIFY', description: 'Execute independent cryptographic blockchain proof verification', effect: 'ALLOW', scope: 'Public / All' },
+  // Cases Operations
+  { id: 'p1', permissionName: 'CASE_CREATE', description: 'Create Case Containers', effect: 'ALLOW', scope: 'Organization Setting' },
+  { id: 'p2', permissionName: 'CASE_READ', description: 'Read Case Records', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p3', permissionName: 'CASE_UPDATE', description: 'Update Case Metadata', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p4', permissionName: 'CASE_PARTICIPANT_MANAGE', description: 'Manage Case Participants', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+
+  // Documents Operations
+  { id: 'p5', permissionName: 'DOCUMENT_UPLOAD', description: 'Upload Evidence Documents', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p6', permissionName: 'DOCUMENT_READ', description: 'Read Document Exhibits', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p7', permissionName: 'DOCUMENT_UPDATE', description: 'Update Document Versions', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p8', permissionName: 'DOCUMENT_DOWNLOAD', description: 'Download Raw Documents', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p9', permissionName: 'DOCUMENT_VERIFY', description: 'Verify Cryptographic Hashes', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+
+  // Evidence Operations
+  { id: 'p10', permissionName: 'EVIDENCE_CREATE', description: 'Register Physical Evidence', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p11', permissionName: 'EVIDENCE_READ', description: 'Inspect Physical Evidence', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p12', permissionName: 'EVIDENCE_UPDATE', description: 'Update Physical Evidence', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p13', permissionName: 'CUSTODY_TRANSFER', description: 'Initiate Custody Transfer', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p14', permissionName: 'CUSTODY_ACCEPT', description: 'Accept Custody Handshake', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p15', permissionName: 'CUSTODY_REJECT', description: 'Reject Custody Transfer', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+  { id: 'p16', permissionName: 'CUSTODY_HISTORY_READ', description: 'Read Custody Ledger', effect: 'ALLOW', scope: 'Org-Wide / Container' },
+
+  // Governance Operations
+  { id: 'p17', permissionName: 'AUDIT_READ', description: 'Inspect Audit Logs', effect: 'ALLOW', scope: 'Organization Setting' },
+  { id: 'p18', permissionName: 'USER_CREATE', description: 'Provision / Enroll Users', effect: 'ALLOW', scope: 'Organization Setting' },
+  { id: 'p19', permissionName: 'USER_READ', description: 'View Personnel Roster', effect: 'ALLOW', scope: 'Organization Setting' },
+  { id: 'p20', permissionName: 'ROLE_CREATE', description: 'Manage Dynamic Roles', effect: 'ALLOW', scope: 'Organization Setting' },
+  { id: 'p21', permissionName: 'ROLE_READ', description: 'View Dynamic Roles', effect: 'ALLOW', scope: 'Organization Setting' },
 ];

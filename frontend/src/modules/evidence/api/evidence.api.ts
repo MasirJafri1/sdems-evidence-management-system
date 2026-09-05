@@ -56,9 +56,9 @@ export const createEvidenceApi = async (data: {
   return response.data;
 };
 
-export const getEvidenceByIdApi = async (evidenceId: string): Promise<EvidenceApiRecord> => {
-  const response = await apiClient.get<EvidenceApiRecord>(`/evidence/${evidenceId}`);
-  return response.data;
+export const getEvidenceByIdApi = async (evidenceId: string): Promise<any> => {
+  const response = await apiClient.get<any>(`/evidence/${evidenceId}`);
+  return response.data.evidence;
 };
 
 export const initiateTransferApi = async (
@@ -74,14 +74,19 @@ export const acceptTransferApi = async (transferId: string) => {
   return response.data;
 };
 
-export const rejectTransferApi = async (transferId: string) => {
-  const response = await apiClient.post(`/transfers/${transferId}/reject`);
+export const rejectTransferApi = async (transferId: string, reason: string) => {
+  const response = await apiClient.post(`/transfers/${transferId}/reject`, { rejectionReason: reason });
+  return response.data;
+};
+
+export const getMyTransfersApi = async () => {
+  const response = await apiClient.get('/transfers');
   return response.data;
 };
 
 export const getCustodyHistoryApi = async (evidenceId: string): Promise<CustodyEventRecord[]> => {
-  const response = await apiClient.get<CustodyEventRecord[]>(`/evidence/${evidenceId}/custody-history`);
-  return response.data;
+  const response = await apiClient.get<any>(`/evidence/${evidenceId}/custody-history`);
+  return response.data.history;
 };
 
 export const verifyCustodyHistoryApi = async (evidenceId: string): Promise<{ valid: boolean }> => {

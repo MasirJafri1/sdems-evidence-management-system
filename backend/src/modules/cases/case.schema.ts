@@ -10,5 +10,6 @@ export const createCaseSchema = z.object({
 
 export const addParticipantSchema = z.object({
   userId: z.string().min(1),
-  isCaseAdmin: z.boolean().default(false)
+  isCaseAdmin: z.boolean().default(false),
+  permissions: z.array(z.string()).optional()
 });

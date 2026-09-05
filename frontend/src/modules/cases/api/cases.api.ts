@@ -52,3 +52,44 @@ export const createCaseApi = async (
   const response = await apiClient.post<CaseApiRecord>(`/organizations/${organizationId}/cases`, data);
   return response.data;
 };
+
+export const addCaseParticipantApi = async (
+  caseId: string,
+  data: {
+    userId: string;
+    isCaseAdmin?: boolean;
+    permissions?: string[];
+  }
+) => {
+  const response = await apiClient.post(`/cases/${caseId}/participants`, data);
+  return response.data;
+};
+
+export const getCaseParticipantsApi = async (caseId: string) => {
+  const response = await apiClient.get(`/cases/${caseId}/participants`);
+  return response.data;
+};
+
+// ----------------------------------------------------------------------------
+// EXTERNAL CASE ACCESS
+// ----------------------------------------------------------------------------
+
+export const requestCaseAccessApi = async (caseNumber: string, reason?: string) => {
+  const response = await apiClient.post('/cases/access-requests', { caseNumber, reason });
+  return response.data;
+};
+
+export const verifyCaseApi = async (caseNumber: string): Promise<{ valid: boolean, caseId?: string, title?: string }> => {
+  const response = await apiClient.get(`/cases/verify/${caseNumber}`);
+  return response.data;
+};
+
+export const listCaseAccessRequestsApi = async (caseId: string) => {
+  const response = await apiClient.get(`/cases/${caseId}/access-requests`);
+  return response.data;
+};
+
+export const resolveCaseAccessRequestApi = async (requestId: string, action: 'APPROVE' | 'REJECT') => {
+  const response = await apiClient.post(`/cases/access-requests/${requestId}/resolve`, { action });
+  return response.data;
+};

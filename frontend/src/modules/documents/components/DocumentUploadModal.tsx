@@ -11,12 +11,14 @@ interface DocumentUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  defaultCaseId?: string;
 }
 
 export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  defaultCaseId,
 }) => {
   const { cases } = useCaseList();
   const [file, setFile] = useState<File | null>(null);
@@ -27,7 +29,13 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [uploadedInfo, setUploadedInfo] = useState<{ sha256: string; anchorId?: string } | null>(null);
 
-  const activeCaseId = selectedCaseId || cases[0]?.id || '';
+  React.useEffect(() => {
+    if (defaultCaseId) {
+      setSelectedCaseId(defaultCaseId);
+    }
+  }, [defaultCaseId, isOpen]);
+
+  const activeCaseId = selectedCaseId || defaultCaseId || cases[0]?.id || '';
 
   const handleStartUpload = async () => {
     if (!file || !activeCaseId) return;
@@ -94,19 +102,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             placeholder="e.g. Memory Forensic Analysis Exhibit"
           />
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700 uppercase">Document Classification</label>
-            <select
-              value={documentType}
-              onChange={(e) => setDocumentType(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-800"
-            >
-              <option value="Forensic Report">Forensic Report</option>
-              <option value="Audit Log">Audit Log</option>
-              <option value="Seizure Protocol">Seizure Protocol</option>
-              <option value="Judicial Exhibit Binder">Judicial Exhibit Binder</option>
-            </select>
-          </div>
+          <Input
+            label="Document Category / Type (Dynamic Entry)"
+            value={documentType}
+            onChange={(e) => setDocumentType(e.target.value)}
+            placeholder="e.g. Memory Dump, Forensic Analysis Exhibit, Seizure Report..."
+          />
 
           <div className="border-2 border-dashed border-slate-300 rounded p-6 text-center bg-slate-50 relative">
             <input
@@ -118,7 +119,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             {file ? (
               <div className="text-xs font-bold text-slate-900">{file.name} ({(file.size / 1024).toFixed(1)} KB)</div>
             ) : (
-              <div className="text-xs font-medium text-slate-600">Click or drag binary file to initiate upload</div>
+              <div className="text-xs font-medium text-slate-600">Click or drag any evidence binary (video, audio, pdf, image, zip, tar, raw disk...) to initiate upload</div>
             )}
           </div>
 

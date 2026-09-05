@@ -41,5 +41,7 @@ export const createUserSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
   password: z.string().min(6).optional(),
-  roleId: z.string().min(1)
+  roleId: z.string().optional(),
+  roleName: z.string().optional(),
+  permissions: z.array(z.string()).optional()
 });

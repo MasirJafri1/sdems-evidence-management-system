@@ -13,6 +13,12 @@ enum CaseStatus {
   ARCHIVED
 }
 
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum MembershipStatus {
   ACTIVE
   SUSPENDED
@@ -111,6 +117,8 @@ model User {
 
   casePermissions        CasePermission[]
   createdCasePermissions CasePermission[] @relation("CasePermissionCreator")
+
+  caseAccessRequests     CaseAccessRequest[]
 }
 
 model OrganizationMembership {
@@ -192,6 +200,7 @@ model Case {
   auditEvents  AuditEvent[]
 
   permissions CasePermission[]
+  accessRequests CaseAccessRequest[]
 
   @@unique([organizationId, caseNumber])
   @@index([organizationId])
@@ -490,3 +499,22 @@ model CasePermission {
   @@index([permissionId])
   @@index([expiresAt])
 }
+
+model CaseAccessRequest {
+  id        String   @id @default(cuid())
+  caseId    String
+  userId    String
+  reason    String?
+  status    AccessRequestStatus @default(PENDING)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+  @@index([caseId])
+  @@index([userId])
+}
+

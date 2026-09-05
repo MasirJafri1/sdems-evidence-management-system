@@ -9,7 +9,8 @@ import {
   custodyHistory,
   verifyCustodyHistoryController,
   listCaseEvidenceController,
-  listOrganizationEvidenceController
+  listOrganizationEvidenceController,
+  listMyTransfersController
 } from "./evidence.controller";
 
 const router = Router();
@@ -66,6 +67,12 @@ router.get(
   "/evidence/:evidenceId/custody-history/verify",
   authenticate,
   verifyCustodyHistoryController
+);
+
+router.get(
+  "/transfers",
+  authenticate,
+  listMyTransfersController
 );
 
 export default router;

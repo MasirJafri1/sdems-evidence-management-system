@@ -4,7 +4,7 @@ import { AuthenticatedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { createCaseSchema, addParticipantSchema } from "./case.schema";
 import { createAuditEvent } from "../audit/audit.service";
-import { checkCasePermission } from "../authorization/authorization.service";
+import { checkCasePermission, grantCasePermission } from "../authorization/authorization.service";
 
 async function getOrganizationMembership(
   userId: string,
@@ -370,8 +370,18 @@ export async function addParticipant(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  const participant = await prisma.caseParticipant.create({
-    data: {
+  const participant = await prisma.caseParticipant.upsert({
+    where: {
+      caseId_userId: {
+        caseId,
+        userId: parsed.data.userId
+      }
+    },
+    update: {
+      isCaseAdmin: parsed.data.isCaseAdmin,
+      status: "ACTIVE"
+    },
+    create: {
       caseId,
       userId: parsed.data.userId,
       isCaseAdmin: parsed.data.isCaseAdmin
@@ -386,6 +396,23 @@ export async function addParticipant(req: AuthenticatedRequest, res: Response) {
       }
     }
   });
+
+  // Grant Case-Level Permissions from Checkboxes
+  if (parsed.data.permissions && Array.isArray(parsed.data.permissions)) {
+    for (const permName of parsed.data.permissions) {
+      try {
+        await grantCasePermission(
+          caseId,
+          parsed.data.userId,
+          permName,
+          "GRANT",
+          currentUserId
+        );
+      } catch (e) {
+        // ignore if permission does not exist
+      }
+    }
+  }
 
   await createAuditEvent({
     caseId,
@@ -410,20 +437,25 @@ export async function getParticipants(
   const userId = req.userId!;
   const caseId = req.params.caseId as string;
 
-  const participant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId,
-        userId
-      }
-    }
-  });
+  const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
 
-  if (!participant || participant.status !== "ACTIVE") {
-    res.status(403).json({
-      message: "You are not a participant of this case"
+  if (!isSuperAdmin) {
+    const participant = await prisma.caseParticipant.findUnique({
+      where: {
+        caseId_userId: {
+          caseId,
+          userId
+        }
+      }
     });
-    return;
+
+    if (!participant || participant.status !== "ACTIVE") {
+      res.status(403).json({
+        message: "You are not a participant of this case"
+      });
+      return;
+    }
   }
 
   const participants = await prisma.caseParticipant.findMany({
@@ -436,11 +468,167 @@ export async function getParticipants(
         select: {
           id: true,
           name: true,
-          email: true
+          email: true,
+          casePermissions: {
+            where: { caseId },
+            include: { permission: true }
+          }
         }
       }
     }
   });
 
   res.json(participants);
+}
+
+// ----------------------------------------------------------------------------
+// EXTERNAL CASE ACCESS
+// ----------------------------------------------------------------------------
+
+export async function requestCaseAccess(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { caseNumber, reason } = req.body;
+    const userId = req.userId!;
+
+    const caseRec = await prisma.case.findFirst({
+      where: { caseNumber }
+    });
+    
+    if (!caseRec) {
+      res.status(404).json({ message: "Case not found with the provided case number." });
+      return;
+    }
+
+    const existingParticipant = await prisma.caseParticipant.findUnique({
+      where: { caseId_userId: { caseId: caseRec.id, userId } }
+    });
+
+    if (existingParticipant && existingParticipant.status === "ACTIVE") {
+      res.status(400).json({ message: "You are already an active participant in this case." });
+      return;
+    }
+
+    const reqRecord = await prisma.caseAccessRequest.upsert({
+      where: { caseId_userId: { caseId: caseRec.id, userId } },
+      update: { status: "PENDING", reason },
+      create: { caseId: caseRec.id, userId, reason, status: "PENDING" }
+    });
+
+    res.status(201).json(reqRecord);
+  } catch (error: any) {
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+}
+
+export async function listCaseAccessRequests(req: AuthenticatedRequest, res: Response) {
+  try {
+    const caseId = req.params.caseId as string;
+    
+    const requests = await prisma.caseAccessRequest.findMany({
+      where: { caseId, status: "PENDING" },
+      include: {
+        user: { select: { id: true, name: true, email: true } }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    res.json(requests);
+  } catch (error: any) {
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+}
+
+export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: Response) {
+  try {
+    const requestId = req.params.id as string;
+    const { action } = req.body; // 'APPROVE' | 'REJECT'
+    const approverId = req.userId!;
+
+    const accessReq = await prisma.caseAccessRequest.findUnique({
+      where: { id: requestId }
+    });
+    
+    if (!accessReq) {
+      res.status(404).json({ message: "Access request not found" });
+      return;
+    }
+    
+    if (accessReq.status !== "PENDING") {
+      res.status(400).json({ message: "Access request is already resolved" });
+      return;
+    }
+
+    const approverParticipant = await prisma.caseParticipant.findUnique({
+      where: { caseId_userId: { caseId: accessReq.caseId, userId: approverId } }
+    });
+    
+    if (!approverParticipant || !approverParticipant.isCaseAdmin) {
+      res.status(403).json({ message: "Only case administrators can approve access requests" });
+      return;
+    }
+
+    const updatedReq = await prisma.$transaction(async (tx) => {
+      const uReq = await tx.caseAccessRequest.update({
+        where: { id: requestId },
+        data: { status: action === 'APPROVE' ? "APPROVED" : "REJECTED" }
+      });
+
+      if (action === 'APPROVE') {
+        await tx.caseParticipant.upsert({
+          where: { caseId_userId: { caseId: accessReq.caseId, userId: accessReq.userId } },
+          update: { status: "ACTIVE", removedAt: null },
+          create: { caseId: accessReq.caseId, userId: accessReq.userId, status: "ACTIVE" }
+        });
+
+        const readPerms = await tx.permission.findMany({
+          where: { name: { in: ['CASE_READ', 'DOCUMENT_READ', 'EVIDENCE_READ'] } }
+        });
+        
+        for (const p of readPerms) {
+          await tx.casePermission.upsert({
+            where: {
+              caseId_userId_permissionId: {
+                caseId: accessReq.caseId,
+                userId: accessReq.userId,
+                permissionId: p.id
+              }
+            },
+            update: { effect: "GRANT" },
+            create: {
+              caseId: accessReq.caseId,
+              userId: accessReq.userId,
+              permissionId: p.id,
+              createdById: approverId
+            }
+          });
+        }
+      }
+      return uReq;
+    });
+
+    res.json(updatedReq);
+  } catch (error: any) {
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+}
+
+export async function verifyCase(req: AuthenticatedRequest, res: Response) {
+  try {
+    const caseNumber = req.params.caseNumber as string;
+    if (!caseNumber) {
+      res.status(400).json({ valid: false, message: "Case number is required" });
+      return;
+    }
+    const caseRec = await prisma.case.findFirst({
+      where: { caseNumber }
+    });
+    
+    if (caseRec) {
+      res.json({ valid: true, caseId: caseRec.id, title: caseRec.title });
+    } else {
+      res.json({ valid: false });
+    }
+  } catch (error: any) {
+    res.status(500).json({ valid: false, message: "Internal server error" });
+  }
 }

@@ -1,18 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TransferInitiateModal } from '../components/TransferInitiateModal';
 import { TransferAcceptModal } from '../components/TransferAcceptModal';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
-import { GitCommit, ArrowRightLeft, ShieldCheck, CheckCircle2, Clock } from 'lucide-react';
+import { GitCommit, ShieldCheck, Clock, ArrowRightLeft } from 'lucide-react';
 import { useCustodyTransfer } from '../hooks/useCustodyTransfer';
+import { getMyTransfersApi } from '../../evidence/api/evidence.api';
 
 export const CustodyPage: React.FC = () => {
   const { startTransfer, acceptTransfer, rejectTransfer } = useCustodyTransfer();
   const [isInitiateOpen, setIsInitiateOpen] = useState(false);
   const [isAcceptOpen, setIsAcceptOpen] = useState(false);
+  const [selectedTransferForAccept, setSelectedTransferForAccept] = useState<any>(null);
 
-  // Active transfers state
   const [transfers, setTransfers] = useState<any[]>([]);
+
+  const fetchTransfers = async () => {
+    try {
+      const data = await getMyTransfersApi();
+      const formatted = data.map((t: any) => ({
+        id: t.id,
+        evidenceNumber: t.evidence?.evidenceNumber || t.evidenceId,
+        itemTitle: t.evidence?.title || 'Unknown Evidence',
+        fromOfficer: `${t.fromUser?.name} (${t.fromUser?.memberships?.[0]?.organization?.name || 'Unknown'})`,
+        toOfficer: `${t.toUser?.name} (${t.toUser?.memberships?.[0]?.organization?.name || 'Unknown'})`,
+        status: t.status,
+        timestamp: t.createdAt,
+        reason: t.reason,
+      }));
+      setTransfers(formatted);
+    } catch (err) {
+      console.error('Failed to fetch transfers', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchTransfers();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -28,13 +52,6 @@ export const CustodyPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setIsAcceptOpen(true)}
-            leftIcon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-          >
-            Accept Pending Sign-off
-          </Button>
           <Button
             variant="primary"
             onClick={() => setIsInitiateOpen(true)}
@@ -85,6 +102,7 @@ export const CustodyPage: React.FC = () => {
                 <th className="p-3">Handshake Status</th>
                 <th className="p-3">Transfer Reason</th>
                 <th className="p-3">Timestamp</th>
+                <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-medium bg-white">
@@ -114,6 +132,20 @@ export const CustodyPage: React.FC = () => {
                       <Clock className="w-3 h-3 text-slate-400" />
                       {new Date(t.timestamp).toLocaleString()}
                     </td>
+                    <td className="p-3 text-right">
+                      {t.status === 'PENDING' && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => {
+                            setSelectedTransferForAccept(t);
+                            setIsAcceptOpen(true);
+                          }}
+                        >
+                          Review
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -126,20 +158,11 @@ export const CustodyPage: React.FC = () => {
       <TransferInitiateModal
         isOpen={isInitiateOpen}
         onClose={() => setIsInitiateOpen(false)}
-        evidenceNumber="EVID-2026-9041"
-        onInitiate={async (toCustodian: string, toOrg: string, reason: string) => {
-          await startTransfer('EVID-2026-9041', toCustodian, toOrg, reason);
-          const newTransfer = {
-            id: `trf-${Date.now().toString().slice(-4)}`,
-            evidenceNumber: 'EVID-2026-9041',
-            itemTitle: 'Seized Digital Property',
-            fromOfficer: 'Current Vault Custodian',
-            toOfficer: `${toCustodian} (${toOrg})`,
-            status: 'PENDING',
-            timestamp: new Date().toISOString(),
-            reason,
-          };
-          setTransfers((prev) => [newTransfer, ...prev]);
+        onInitiate={async (evId: string, toCustodian: string, toOrg: string, reason: string) => {
+          const res = await startTransfer(evId, toCustodian, toOrg, reason);
+          if (res.success) {
+            fetchTransfers();
+          }
         }}
       />
 
@@ -147,11 +170,14 @@ export const CustodyPage: React.FC = () => {
       <TransferAcceptModal
         isOpen={isAcceptOpen}
         onClose={() => setIsAcceptOpen(false)}
+        transfer={selectedTransferForAccept}
         onAccept={async (transferId: string) => {
           await acceptTransfer(transferId);
+          fetchTransfers();
         }}
-        onReject={async (transferId: string) => {
-          await rejectTransfer(transferId);
+        onReject={async (transferId: string, reason: string) => {
+          await rejectTransfer(transferId, reason);
+          fetchTransfers();
         }}
       />
     </div>

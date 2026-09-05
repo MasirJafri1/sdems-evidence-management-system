@@ -5,10 +5,8 @@ import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
-import { Building, ShieldCheck, Plus, Users, CheckCircle, AlertCircle, UserCheck } from 'lucide-react';
-import { createOrganizationApi, getOrganizationsApi, getAllRegisteredOfficersApi } from '../api/organization.api';
-
-
+import { Building, ShieldCheck, Plus, Users, CheckCircle, AlertCircle, UserCheck, Search } from 'lucide-react';
+import { createOrganizationApi, getOrganizationsApi, lookupUserApi } from '../api/organization.api';
 
 interface OrgMember {
   id: string;
@@ -28,12 +26,6 @@ interface Organization {
   securityLevel: string;
 }
 
-interface RegisteredOfficer {
-  id: string;
-  name: string;
-  email: string;
-}
-
 export const OrganizationsPage: React.FC = () => {
   const navigate = useNavigate();
   const [isAddOrgOpen, setIsAddOrgOpen] = useState(false);
@@ -49,7 +41,10 @@ export const OrganizationsPage: React.FC = () => {
   // Compulsory Admin Assignment state: 'NEW' | 'EXISTING'
   const [adminType, setAdminType] = useState<'NEW' | 'EXISTING'>('NEW');
   const [existingUserId, setExistingUserId] = useState('');
-  const [registeredOfficers, setRegisteredOfficers] = useState<RegisteredOfficer[]>([]);
+  const [adminLookupQuery, setAdminLookupQuery] = useState('');
+  const [searchedAdmin, setSearchedAdmin] = useState<any | null>(null);
+  const [isSearchingAdmin, setIsSearchingAdmin] = useState(false);
+  const [adminLookupError, setAdminLookupError] = useState<string | null>(null);
   
   // New Admin details
   const [adminName, setAdminName] = useState('');
@@ -60,10 +55,7 @@ export const OrganizationsPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [orgs, officers] = await Promise.all([
-        getOrganizationsApi(),
-        getAllRegisteredOfficersApi()
-      ]);
+      const orgs = await getOrganizationsApi();
 
       if (Array.isArray(orgs)) {
         const mapped: Organization[] = orgs.map((o: any) => ({
@@ -86,10 +78,6 @@ export const OrganizationsPage: React.FC = () => {
           setSelectedOrgId(mapped[0].id);
         }
       }
-
-      if (Array.isArray(officers)) {
-        setRegisteredOfficers(officers);
-      }
     } catch (err) {
       console.error('Failed to load organization data:', err);
     }
@@ -99,13 +87,35 @@ export const OrganizationsPage: React.FC = () => {
     loadData();
   }, []);
 
+  const handleAdminLookup = async () => {
+    if (!adminLookupQuery.trim()) {
+      setAdminLookupError('Please enter an Email address or User ID to lookup.');
+      return;
+    }
+
+    setIsSearchingAdmin(true);
+    setAdminLookupError(null);
+    setSearchedAdmin(null);
+    setExistingUserId('');
+
+    const res = await lookupUserApi(adminLookupQuery.trim());
+    setIsSearchingAdmin(false);
+
+    if (res.found && res.user) {
+      setSearchedAdmin(res.user);
+      setExistingUserId(res.user.id);
+    } else {
+      setAdminLookupError(res.message || 'No registered officer found with that Email or User ID.');
+    }
+  };
+
   const handleRegisterOrg = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setErrorMessage(null);
 
     if (adminType === 'EXISTING' && !existingUserId) {
-      setErrorMessage('Compulsory: Please select an existing registered officer as Organization Admin.');
+      setErrorMessage('Compulsory: Please lookup and verify a registered officer as Organization Admin by Email or User ID.');
       setIsSubmitting(false);
       return;
     }
@@ -117,8 +127,6 @@ export const OrganizationsPage: React.FC = () => {
     }
 
     try {
-      const selectedOfficer = registeredOfficers.find(o => o.id === existingUserId);
-
       const payload = adminType === 'EXISTING' ? {
         name: newOrgName,
         code: newOrgCode.toUpperCase(),
@@ -135,8 +143,8 @@ export const OrganizationsPage: React.FC = () => {
 
       const result = await createOrganizationApi(payload);
 
-      const assignedAdminName = adminType === 'EXISTING' ? (selectedOfficer?.name || 'Assigned Officer') : adminName;
-      const assignedAdminEmail = adminType === 'EXISTING' ? (selectedOfficer?.email || 'officer@gov.in') : adminEmail;
+      const assignedAdminName = adminType === 'EXISTING' ? (searchedAdmin?.name || 'Assigned Officer') : adminName;
+      const assignedAdminEmail = adminType === 'EXISTING' ? (searchedAdmin?.email || 'officer@gov.in') : adminEmail;
 
       await loadData();
       if (result?.organization?.id) {
@@ -156,6 +164,8 @@ export const OrganizationsPage: React.FC = () => {
       setAdminEmail('');
       setAdminPassword('Password123!');
       setExistingUserId('');
+      setAdminLookupQuery('');
+      setSearchedAdmin(null);
       setIsAddOrgOpen(false);
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to register organization. Please check details and try again.';
@@ -177,7 +187,7 @@ export const OrganizationsPage: React.FC = () => {
             Multi-Tenant Organization Portal
           </h1>
           <p className="text-xs text-slate-600 mt-1">
-            Register government organizations, manage active agency rosters, and assign organization administrator authority.
+            Register government organizations, manage enrolled agency rosters, and assign organization administrator authority.
           </p>
         </div>
 
@@ -220,9 +230,9 @@ export const OrganizationsPage: React.FC = () => {
         <div className="p-8 border border-dashed border-slate-300 bg-slate-50 rounded-lg text-center space-y-3">
           <Building className="w-10 h-10 text-slate-400 mx-auto" />
           <div>
-            <h3 className="text-sm font-bold text-slate-800">No Organizations Registered Yet</h3>
+            <h3 className="text-sm font-bold text-slate-800">No Enrolled Organizations</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-              As Super Admin, click "Register Organization" above to register an organization and assign a compulsory Org Admin.
+              You are currently viewing organizations for your enrolled account. Click "Register Organization" above to provision a new agency.
             </p>
           </div>
         </div>
@@ -350,7 +360,7 @@ export const OrganizationsPage: React.FC = () => {
       >
         <form onSubmit={handleRegisterOrg} className="space-y-4 text-xs">
           <div className="p-3 bg-blue-50 border border-blue-200 rounded text-blue-900 text-[11px]">
-            <strong>Compulsory Admin Assignment:</strong> Every new organization must be assigned an Organization Admin. You can either select an existing registered officer or create a new user on the go.
+            <strong>Compulsory Admin Assignment:</strong> Every new organization must be assigned an Organization Admin. You can either lookup an existing registered officer by Email/ID or create a new user on the go.
           </div>
 
           <Input
@@ -405,36 +415,64 @@ export const OrganizationsPage: React.FC = () => {
               >
                 <div className="flex items-center gap-1.5 text-xs font-bold">
                   <Users className="w-4 h-4 text-indigo-600" />
-                  Assign Registered Officer
+                  Assign Registered Officer (Search by Email/ID)
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1">
-                  Select existing registered officer from database
+                  Lookup registered officer by Email or User ID
                 </div>
               </button>
             </div>
 
             {/* Mode A: Select Existing Registered Officer */}
             {adminType === 'EXISTING' ? (
-              <div className="space-y-2 pt-2">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Select Registered Officer <span className="text-red-500">*</span>
+              <div className="space-y-3 pt-2">
+                <label className="block text-xs font-semibold text-slate-700 uppercase">
+                  Search Registered Officer by Email or User ID *
                 </label>
-                <select
-                  value={existingUserId}
-                  onChange={(e) => setExistingUserId(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                >
-                  <option value="">-- Choose Registered Officer --</option>
-                  {registeredOfficers.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name} ({o.email})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-slate-500">
-                  Selected officer will gain Organization Admin superpowers restricted to this organization.
-                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. anil.kumar@cbi.gov.in or cm123..."
+                    value={adminLookupQuery}
+                    onChange={(e) => setAdminLookupQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAdminLookup();
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleAdminLookup}
+                    isLoading={isSearchingAdmin}
+                    leftIcon={<Search className="w-3.5 h-3.5" />}
+                  >
+                    Lookup
+                  </Button>
+                </div>
+
+                {searchedAdmin && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded space-y-1 text-xs text-emerald-950 font-medium">
+                    <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                      Officer Verified: {searchedAdmin.name} ({searchedAdmin.email})
+                    </div>
+                    <div className="text-[11px] text-emerald-700 font-mono">
+                      User ID: {searchedAdmin.id}
+                    </div>
+                  </div>
+                )}
+
+                {adminLookupError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-900 font-medium flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>{adminLookupError}</span>
+                  </div>
+                )}
               </div>
             ) : (
               /* Mode B: Create New Admin User on the Go */

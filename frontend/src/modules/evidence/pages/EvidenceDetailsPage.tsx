@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getEvidenceByIdApi } from '../api/evidence.api';
+import { getEvidenceByIdApi, getCustodyHistoryApi } from '../api/evidence.api';
 import { Card } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -8,16 +8,39 @@ import { CustodyTimeline } from '../../custody/components/CustodyTimeline';
 import { ArrowLeft, GitCommit } from 'lucide-react';
 import { ROUTES } from '../../../config/routes.config';
 
+import { TransferInitiateModal } from '../../custody/components/TransferInitiateModal';
+import { useCustodyTransfer } from '../../custody/hooks/useCustodyTransfer';
+
 export const EvidenceDetailsPage: React.FC = () => {
   const { evidenceId } = useParams<{ evidenceId: string }>();
   const navigate = useNavigate();
   const [evidenceRecord, setEvidenceRecord] = useState<any | null>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [isInitiateOpen, setIsInitiateOpen] = useState(false);
+  const { startTransfer } = useCustodyTransfer();
 
   useEffect(() => {
     if (!evidenceId) return;
     getEvidenceByIdApi(evidenceId)
       .then((data) => setEvidenceRecord(data))
       .catch(() => setEvidenceRecord(null));
+      
+    getCustodyHistoryApi(evidenceId)
+      .then((data: any[]) => {
+        const mapped = data.map((evt) => ({
+          id: evt.id,
+          sequence: evt.sequence,
+          eventType: evt.reason || 'Custody Handshake',
+          timestamp: evt.createdAt,
+          actor: evt.toUser?.name || 'Unknown Officer',
+          organization: evt.toUser?.email || 'System Network',
+          location: 'Verified Network',
+          transferId: evt.transferId,
+          eventHash: evt.eventHash
+        }));
+        setHistory(mapped);
+      })
+      .catch(() => setHistory([]));
   }, [evidenceId]);
 
   const item = {
@@ -28,11 +51,11 @@ export const EvidenceDetailsPage: React.FC = () => {
     serialNumber: evidenceRecord?.serialNumber || 'SN-VERIFIED-01',
     storageLocation: evidenceRecord?.storageLocation || 'CFSL Vault Locker 4B',
     caseNumber: 'CASE-2026-Testing',
-    currentCustodian: 'Senior Inspector Rajesh Sharma',
+    currentCustodian: evidenceRecord?.currentCustodian?.name || 'Unknown Custodian',
     custodianOrganization: 'Central Bureau of Investigation',
-    collectedBy: 'Senior Inspector Rajesh Sharma',
+    collectedBy: evidenceRecord?.createdBy?.name || 'Unknown User',
     dateCollected: evidenceRecord?.createdAt || new Date().toISOString(),
-    history: [],
+    history: history,
   };
 
   return (
@@ -58,11 +81,20 @@ export const EvidenceDetailsPage: React.FC = () => {
             <p className="text-xs text-slate-500 font-medium">Serial: {item.serialNumber} • Storage Location: {item.storageLocation}</p>
           </div>
 
-          <Button variant="primary" size="sm" leftIcon={<GitCommit className="w-3.5 h-3.5" />}>
+          <Button variant="primary" size="sm" onClick={() => setIsInitiateOpen(true)} leftIcon={<GitCommit className="w-3.5 h-3.5" />}>
             Initiate Custody Handshake
           </Button>
         </div>
       </div>
+
+      <TransferInitiateModal
+        isOpen={isInitiateOpen}
+        onClose={() => setIsInitiateOpen(false)}
+        evidenceId={evidenceRecord?.id}
+        onInitiate={async (evNumber: string, toCustodian: string, toOrg: string, reason: string) => {
+          await startTransfer(evNumber, toCustodian, toOrg, reason);
+        }}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">

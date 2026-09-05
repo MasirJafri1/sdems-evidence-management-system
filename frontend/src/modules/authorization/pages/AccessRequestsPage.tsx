@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
-import { ShieldAlert, CheckCircle2, XCircle, Send, Search, Building2, Clock } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, XCircle, Send, Search, Building2, Clock, Loader2 } from 'lucide-react';
+import { verifyCaseApi } from '../../cases/api/cases.api';
 
 interface AccessRequest {
   id: string;
@@ -24,7 +25,39 @@ export const AccessRequestsPage: React.FC = () => {
   const [targetOrg, setTargetOrg] = useState('');
   const [reason, setReason] = useState('');
 
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isValidCase, setIsValidCase] = useState<boolean | null>(null);
+  const [verifiedCaseTitle, setVerifiedCaseTitle] = useState<string | null>(null);
+
   const [requests, setRequests] = useState<AccessRequest[]>([]);
+
+  useEffect(() => {
+    if (!targetCaseId || targetCaseId.trim() === '') {
+      setIsValidCase(null);
+      setVerifiedCaseTitle(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsVerifying(true);
+      try {
+        const result = await verifyCaseApi(targetCaseId);
+        setIsValidCase(result.valid);
+        if (result.valid && result.title) {
+          setVerifiedCaseTitle(result.title);
+        } else {
+          setVerifiedCaseTitle(null);
+        }
+      } catch (err) {
+        setIsValidCase(false);
+        setVerifiedCaseTitle(null);
+      } finally {
+        setIsVerifying(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [targetCaseId]);
 
 
   const handleCreateRequest = (e: React.FormEvent) => {
@@ -214,13 +247,26 @@ export const AccessRequestsPage: React.FC = () => {
         maxWidth="md"
       >
         <form onSubmit={handleCreateRequest} className="space-y-4 text-xs">
-          <Input
-            label="Target Case ID (e.g. CASE-2026-0892)"
-            value={targetCaseId}
-            onChange={(e) => setTargetCaseId(e.target.value)}
-            placeholder="CASE-YYYY-XXXX"
-            required
-          />
+          <div>
+            <Input
+              label="Target Case ID (e.g. CASE-2026-0892)"
+              value={targetCaseId}
+              onChange={(e) => setTargetCaseId(e.target.value)}
+              placeholder="CASE-YYYY-XXXX"
+              required
+            />
+            {targetCaseId && (
+              <div className="mt-1 flex items-center gap-1 text-[10px]">
+                {isVerifying ? (
+                  <><Loader2 className="w-3 h-3 animate-spin text-slate-400" /> <span className="text-slate-500">Verifying case ID...</span></>
+                ) : isValidCase ? (
+                  <><CheckCircle2 className="w-3 h-3 text-emerald-500" /> <span className="text-emerald-600 font-medium">Case found: {verifiedCaseTitle}</span></>
+                ) : (
+                  <><XCircle className="w-3 h-3 text-rose-500" /> <span className="text-rose-600 font-medium">Invalid or unknown case ID</span></>
+                )}
+              </div>
+            )}
+          </div>
 
           <Input
             label="Target Holding Organization / Agency"

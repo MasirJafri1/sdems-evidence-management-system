@@ -8,7 +8,8 @@ import {
   acceptCustodyTransfer,
   rejectCustodyTransfer,
   getCustodyHistory,
-  verifyCustodyHistory
+  verifyCustodyHistory,
+  getTransfersForUser
 } from "./custody.service";
 
 function serializeEvidence(evidence: any) {
@@ -528,5 +529,18 @@ export async function listOrganizationEvidenceController(
   });
 
   res.json(items.map(serializeEvidence));
+}
+
+export async function listMyTransfersController(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  try {
+    const transfers = await getTransfersForUser(req.userId!);
+    res.json(transfers);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to fetch transfers";
+    res.status(500).json({ message });
+  }
 }
 

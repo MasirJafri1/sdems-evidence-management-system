@@ -1,28 +1,14 @@
 import multer from "multer";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
-
-const allowedMimeTypes = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "text/plain",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/zip"
-]);
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB limit for evidence files
 
 export const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: MAX_FILE_SIZE
   },
-  fileFilter: (_req, file, callback) => {
-    if (!allowedMimeTypes.has(file.mimetype)) {
-      return callback(new Error(`Unsupported file type: ${file.mimetype}`));
-    }
+  fileFilter: (_req, _file, callback) => {
+    // Allow all file types (video, audio, text, pdf, image, zip, tar, raw forensic images, etc.)
     callback(null, true);
   }
 });

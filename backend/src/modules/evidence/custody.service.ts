@@ -50,17 +50,14 @@ export async function createCustodyTransfer(input: CreateTransferInput) {
     throw new Error("Transfer must be initiated by the current custodian");
   }
 
-  const recipient = await prisma.caseParticipant.findUnique({
+  const recipient = await prisma.user.findUnique({
     where: {
-      caseId_userId: {
-        caseId: evidence.caseId,
-        userId: input.toUserId
-      }
+      id: input.toUserId
     }
   });
 
-  if (!recipient || recipient.status !== "ACTIVE") {
-    throw new Error("Recipient is not an active participant of this case");
+  if (!recipient) {
+    throw new Error("Recipient does not exist");
   }
 
   const pending = await prisma.custodyTransfer.findFirst({
@@ -368,4 +365,44 @@ export async function verifyCustodyHistory(evidenceId: string) {
     totalEvents: events.length,
     failures
   };
+}
+
+export async function getTransfersForUser(userId: string) {
+  return prisma.custodyTransfer.findMany({
+    where: {
+      OR: [
+        { fromUserId: userId },
+        { toUserId: userId }
+      ]
+    },
+    include: {
+      evidence: {
+        select: {
+          evidenceNumber: true,
+          title: true
+        }
+      },
+      fromUser: {
+        select: {
+          name: true,
+          email: true,
+          memberships: {
+            include: { organization: true }
+          }
+        }
+      },
+      toUser: {
+        select: {
+          name: true,
+          email: true,
+          memberships: {
+            include: { organization: true }
+          }
+        }
+      }
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  });
 }

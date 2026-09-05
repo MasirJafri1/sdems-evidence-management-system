@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
 
 const prisma = new PrismaClient();
 
@@ -35,13 +35,12 @@ async function seedSuperAdmin() {
   console.log("==========================================\n");
 
   try {
-    // 0. Clear all existing data from database tables
+    console.log("🧹 Clearing all existing database tables...");
     await prisma.$executeRawUnsafe(
       `TRUNCATE TABLE "CustodyTransfer", "CustodyEvent", "Evidence", "DocumentVersion", "Document", "CasePermission", "CaseParticipant", "Case", "AuditEvent", "RolePermission", "OrganizationMembership", "Role", "User", "Organization" CASCADE;`
     );
     console.log("✅ Database tables successfully cleared!\n");
 
-    // 1. Seed System Permissions
     console.log("🔑 Seeding system permission matrix...");
     for (const permission of permissions) {
       await prisma.permission.upsert({
@@ -51,7 +50,6 @@ async function seedSuperAdmin() {
       });
     }
 
-    // 2. Create Global Standalone Super Admin Account (No Org Association)
     console.log("👤 Seeding Unassociated Standalone Super Admin Account...");
     const hashedPassword = await bcrypt.hash("Password123!", 10);
 

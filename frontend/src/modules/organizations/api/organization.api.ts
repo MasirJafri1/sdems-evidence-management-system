@@ -24,6 +24,18 @@ export const getOrganizationsApi = async (): Promise<any[]> => {
   }
 };
 
+export const lookupUserApi = async (query: string): Promise<{ found: boolean; user?: any; message?: string }> => {
+  try {
+    const response = await apiClient.post('/organizations/users/lookup', { query });
+    return response.data;
+  } catch (error: any) {
+    return {
+      found: false,
+      message: error.response?.data?.message || 'No registered officer found with that Email or User ID.'
+    };
+  }
+};
+
 export const getAllRegisteredOfficersApi = async (): Promise<Array<{ id: string; name: string; email: string }>> => {
 
   try {
@@ -58,6 +70,8 @@ export const createUserApi = async (
     email?: string;
     password?: string;
     roleId?: string;
+    roleName?: string;
+    permissions?: string[];
   }
 ): Promise<UserApiRecord> => {
   const response = await apiClient.post<UserApiRecord>(`/organizations/${organizationId}/users`, data);

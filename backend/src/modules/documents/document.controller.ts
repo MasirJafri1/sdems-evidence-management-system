@@ -451,8 +451,48 @@ export async function downloadDocument(
 
   const command = new GetObjectCommand({
     Bucket: version.storageBucket,
-    Key: version.storageKey
+    Key: version.storageKey,
+    ResponseContentDisposition: `attachment; filename="${version.originalFileName}"`
   });
+
+  if (req.query.stream === 'true') {
+    try {
+      const s3Item = await s3.send(command);
+      res.setHeader("Content-Disposition", `attachment; filename="${version.originalFileName}"`);
+      res.setHeader("Content-Type", version.mimeType || "application/octet-stream");
+      if (s3Item.ContentLength) {
+        res.setHeader("Content-Length", s3Item.ContentLength.toString());
+      }
+      
+      await createAuditEvent({
+        caseId: document.caseId,
+        actorId: userId,
+        eventType: "DOCUMENT_DOWNLOADED",
+        entityType: "DocumentVersion",
+        entityId: version.id,
+        metadata: {
+          documentId: version.documentId,
+          versionNumber: version.versionNumber,
+          sha256Hash: version.sha256Hash,
+          streamed: true
+        },
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent") ?? null
+      });
+
+      // s3Item.Body is a Readable stream in Node.js
+      if (s3Item.Body) {
+        (s3Item.Body as any).pipe(res);
+      } else {
+        res.status(500).json({ message: "Empty file body returned from storage" });
+      }
+      return;
+    } catch (error) {
+      console.error("Error streaming from S3:", error);
+      res.status(500).json({ message: "Failed to stream file from storage" });
+      return;
+    }
+  }
 
   const signedUrl = await getSignedUrl(s3, command, {
     expiresIn: 300
