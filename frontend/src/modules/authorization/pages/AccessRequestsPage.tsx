@@ -306,7 +306,10 @@ export const AccessRequestsPage: React.FC = () => {
                     </td>
                     <td className="p-3">
                       <div className="font-semibold text-slate-800">
-                        {req.user?.memberships?.[0]?.organization?.name || 'Requesting Agency'}
+                        {req.user?.memberships?.[0]?.organization?.name ||
+                          (req.user?.email === 'superadmin@gov.in'
+                            ? 'Government of India (Super Admin)'
+                            : '⚡ Standalone Officer (No Agency)')}
                       </div>
                       <div className="text-[11px] text-slate-500">
                         {req.user?.name} ({req.user?.email})

@@ -4,6 +4,7 @@ import { AuthenticatedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { createCaseSchema, addParticipantSchema } from "./case.schema";
 import { createAuditEvent } from "../audit/audit.service";
+import { isUserSuperAdmin } from "../organizations/organization.controller";
 import { checkCasePermission, grantCasePermission } from "../authorization/authorization.service";
 
 async function getOrganizationMembership(
@@ -497,8 +498,14 @@ export async function requestCaseAccess(req: AuthenticatedRequest, res: Response
     const { caseNumber, reason } = req.body;
     const userId = req.userId!;
 
+    const query = caseNumber ? caseNumber.trim() : "";
     const caseRec = await prisma.case.findFirst({
-      where: { caseNumber }
+      where: {
+        OR: [
+          { caseNumber: query },
+          { id: query }
+        ]
+      }
     });
     
     if (!caseRec) {
@@ -532,6 +539,9 @@ export async function listCaseAccessRequests(req: AuthenticatedRequest, res: Res
     const caseId = req.params.caseId as string | undefined;
     const userId = req.userId!;
 
+    const reqUser = await prisma.user.findUnique({ where: { id: userId } });
+    const isSuperAdmin = reqUser?.email?.trim().toLowerCase() === "superadmin@gov.in";
+
     if (caseId) {
       const requests = await prisma.caseAccessRequest.findMany({
         where: { caseId },
@@ -561,17 +571,43 @@ export async function listCaseAccessRequests(req: AuthenticatedRequest, res: Res
       return;
     }
 
-    const membership = await prisma.organizationMembership.findFirst({
-      where: { userId, status: "ACTIVE" }
-    });
+    let whereClause: any = {};
+
+    if (isSuperAdmin) {
+      whereClause = {};
+    } else {
+      const userMemberships = await prisma.organizationMembership.findMany({
+        where: { userId, status: "ACTIVE" },
+        select: { organizationId: true }
+      });
+      const myOrgIds = userMemberships.map((m) => m.organizationId);
+
+      const myCaseParticipants = await prisma.caseParticipant.findMany({
+        where: { userId, status: "ACTIVE" },
+        select: { caseId: true }
+      });
+      const myCaseIds = myCaseParticipants.map((cp) => cp.caseId);
+
+      const createdCases = await prisma.case.findMany({
+        where: { createdById: userId },
+        select: { id: true }
+      });
+      const createdCaseIds = createdCases.map((c) => c.id);
+      const allMyCaseIds = Array.from(new Set([...myCaseIds, ...createdCaseIds]));
+
+      const orConditions: any[] = [{ userId }];
+      if (myOrgIds.length > 0) {
+        orConditions.push({ case: { organizationId: { in: myOrgIds } } });
+      }
+      if (allMyCaseIds.length > 0) {
+        orConditions.push({ caseId: { in: allMyCaseIds } });
+      }
+
+      whereClause = { OR: orConditions };
+    }
 
     const requests = await prisma.caseAccessRequest.findMany({
-      where: {
-        OR: [
-          { userId },
-          ...(membership ? [{ case: { organizationId: membership.organizationId } }] : [])
-        ]
-      },
+      where: whereClause,
       include: {
         user: {
           select: {
@@ -609,7 +645,16 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
 
     const accessReq = await prisma.caseAccessRequest.findUnique({
       where: { id: requestId },
-      include: { case: true }
+      include: {
+        case: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
     });
     
     if (!accessReq) {
@@ -623,7 +668,7 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
     }
 
     const currentUser = await prisma.user.findUnique({ where: { id: approverId } });
-    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+    const isSuperAdmin = isUserSuperAdmin(currentUser?.email);
 
     const approverParticipant = await prisma.caseParticipant.findUnique({
       where: { caseId_userId: { caseId: accessReq.caseId, userId: approverId } }
@@ -643,6 +688,8 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
       return;
     }
 
+    let createdParticipantId: string | null = null;
+
     const updatedReq = await prisma.$transaction(async (tx) => {
       const uReq = await tx.caseAccessRequest.update({
         where: { id: requestId },
@@ -650,11 +697,12 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
       });
 
       if (action === 'APPROVE') {
-        await tx.caseParticipant.upsert({
+        const participant = await tx.caseParticipant.upsert({
           where: { caseId_userId: { caseId: accessReq.caseId, userId: accessReq.userId } },
           update: { status: "ACTIVE", removedAt: null },
           create: { caseId: accessReq.caseId, userId: accessReq.userId, status: "ACTIVE" }
         });
+        createdParticipantId = participant.id;
 
         const readPerms = await tx.permission.findMany({
           where: { name: { in: ['CASE_READ', 'DOCUMENT_READ', 'EVIDENCE_READ'] } }
@@ -681,6 +729,34 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
       }
       return uReq;
     });
+
+    // Write Cryptographic Audit Event
+    try {
+      await createAuditEvent({
+        caseId: accessReq.caseId,
+        actorId: approverId,
+        eventType: action === 'APPROVE' ? "USER_ADDED" : "ACCESS_DENIED",
+        entityType: "CaseAccessRequest",
+        entityId: requestId,
+        metadata: {
+          action,
+          requestId,
+          caseId: accessReq.caseId,
+          targetUserId: accessReq.userId,
+          targetUserName: accessReq.user?.name,
+          targetUserEmail: accessReq.user?.email,
+          reason: accessReq.reason,
+          participantId: createdParticipantId,
+          description: action === 'APPROVE'
+            ? `Case access granted to ${accessReq.user?.name} (${accessReq.user?.email})`
+            : `Case access request denied for ${accessReq.user?.name} (${accessReq.user?.email})`
+        },
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent") ?? null
+      });
+    } catch (auditErr) {
+      console.error("Failed to record audit event for access request resolution:", auditErr);
+    }
 
     res.json(updatedReq);
   } catch (error: any) {
