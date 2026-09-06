@@ -718,22 +718,30 @@ export const ReportsPage: React.FC = () => {
                         <div className="text-[11px] text-slate-500 line-clamp-1">{a.case?.title || `ID: ${a.caseId?.slice(0, 10)}...`}</div>
                       </td>
                       <td className="p-3">
-                        <Badge
-                          variant={
-                            a.eventType.includes('CREATE')
-                              ? 'info'
-                              : a.eventType.includes('ACCEPT') || a.eventType.includes('VERIF')
-                              ? 'success'
-                              : a.eventType.includes('DENIED') || a.eventType.includes('REJECT')
-                              ? 'danger'
-                              : 'neutral'
-                          }
-                          size="sm"
-                        >
-                          {a.eventType}
-                        </Badge>
+                        {a.eventType === 'DOCUMENT_VERIFIED' && (a.metadata?.status === 'COMPROMISED' || a.metadata?.verificationResult === false) ? (
+                          <Badge variant="danger" size="sm">
+                            INTEGRITY COMPROMISED
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant={
+                              a.eventType.includes('CREATE')
+                                ? 'info'
+                                : a.eventType.includes('ACCEPT') || a.eventType.includes('VERIF')
+                                ? 'success'
+                                : a.eventType.includes('DENIED') || a.eventType.includes('REJECT')
+                                ? 'danger'
+                                : 'neutral'
+                            }
+                            size="sm"
+                          >
+                            {a.eventType === 'DOCUMENT_VERIFIED' ? 'DOCUMENT VERIFIED (VALID)' : a.eventType}
+                          </Badge>
+                        )}
                         <div className="text-[10px] text-slate-500 mt-0.5">
-                          {getEventCategory(a.eventType)}
+                          {a.metadata?.documentTitle
+                            ? `${a.metadata.documentTitle} — ${a.metadata?.status || 'VERIFIED'}`
+                            : getEventCategory(a.eventType)}
                         </div>
                       </td>
                       <td className="p-3">

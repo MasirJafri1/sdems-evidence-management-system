@@ -97,6 +97,18 @@ export const VerificationForm: React.FC<VerificationFormProps> = ({
 
       const isMatch = computedHash.toLowerCase() === expectedBlockchainHash.toLowerCase();
 
+      // Log verification event into immutable cryptographic audit ledger
+      if (activeVersion?.id) {
+        try {
+          await apiClient.post(`/document-versions/${activeVersion.id}/verify`, {
+            submittedHash: computedHash,
+            fileName: selectedFile?.name || activeVersion.originalFileName,
+          });
+        } catch (auditErr) {
+          console.warn('Could not record verification audit event:', auditErr);
+        }
+      }
+
       onVerify({
         evidenceId: targetDoc ? targetDoc.id : 'CUSTOM-UPLOAD',
         documentTitle: targetDoc ? targetDoc.title : selectedFile?.name || 'Local File',

@@ -10,6 +10,7 @@ import {
 } from '../api/cases.api';
 import { getDocumentsByCaseApi, type DocumentApiRecord } from '../../documents/api/documents.api';
 import { lookupUserApi } from '../../organizations/api/organization.api';
+import { getAuditHistoryApi } from '../../audit/api/audit.api';
 import { Card } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -28,6 +29,7 @@ import {
   Key,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   Users,
   UploadCloud
 } from 'lucide-react';
@@ -76,6 +78,7 @@ export const CaseDetailsPage: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentApiRecord[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
   const [accessRequests, setAccessRequests] = useState<any[]>([]);
+  const [caseAuditEvents, setCaseAuditEvents] = useState<any[]>([]);
 
   // Upload Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -126,6 +129,17 @@ export const CaseDetailsPage: React.FC = () => {
       }
     } catch (e) {
       setAccessRequests([]);
+    }
+
+    try {
+      const auditRes: any = await getAuditHistoryApi(caseId);
+      if (auditRes && Array.isArray(auditRes.events)) {
+        setCaseAuditEvents(auditRes.events);
+      } else if (Array.isArray(auditRes)) {
+        setCaseAuditEvents(auditRes);
+      }
+    } catch (e) {
+      setCaseAuditEvents([]);
     }
   };
 
@@ -457,16 +471,77 @@ export const CaseDetailsPage: React.FC = () => {
       )}
 
       {activeTab === 'audit' && (
-        <Card title="CASE AUDIT LOG">
-          <div className="text-xs space-y-2">
-            <div className="p-2 border-b flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-slate-600" />
-                <span>Seq #1: CASE_CREATED by {currentCase.officerEmail}</span>
-              </div>
-              <Badge variant="success">VALID</Badge>
+        <Card title="IMMUTABLE CASE AUDIT TRAIL" subtitle="Cryptographically chained audit events and verification records for this case">
+          {caseAuditEvents.length === 0 ? (
+            <div className="text-xs text-slate-500 py-6 text-center">
+              No audit events recorded yet for this case.
             </div>
-          </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b bg-slate-50 text-slate-700 font-bold uppercase tracking-wider">
+                    <th className="p-2.5">Seq #</th>
+                    <th className="p-2.5">Timestamp</th>
+                    <th className="p-2.5">Event Type</th>
+                    <th className="p-2.5">Actor</th>
+                    <th className="p-2.5">Details</th>
+                    <th className="p-2.5">Event Hash</th>
+                    <th className="p-2.5">Integrity</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium bg-white">
+                  {caseAuditEvents.map((a) => {
+                    const isCompromised =
+                      a.eventType === 'DOCUMENT_VERIFIED' &&
+                      (a.metadata?.status === 'COMPROMISED' || a.metadata?.verificationResult === false);
+
+                    return (
+                      <tr key={a.id} className={isCompromised ? 'bg-rose-50/60' : 'hover:bg-slate-50'}>
+                        <td className="p-2.5 font-mono font-bold text-slate-800">#{a.sequence}</td>
+                        <td className="p-2.5 text-slate-600 font-mono text-[11px]">
+                          {new Date(a.createdAt).toLocaleString()}
+                        </td>
+                        <td className="p-2.5">
+                          <span className={`font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
+                            isCompromised
+                              ? 'text-rose-700 bg-rose-50 border-rose-200'
+                              : a.eventType === 'DOCUMENT_VERIFIED'
+                              ? 'text-emerald-800 bg-emerald-50 border-emerald-200'
+                              : 'text-slate-800 bg-slate-100 border-slate-200'
+                          }`}>
+                            {isCompromised && <AlertTriangle className="w-3 h-3 text-rose-600 inline" />}
+                            {a.eventType}
+                          </span>
+                        </td>
+                        <td className="p-2.5">
+                          <div className="font-semibold text-slate-900">{a.actor?.name || 'System Operator'}</div>
+                          <div className="text-[10px] text-slate-500">{a.actor?.email || ''}</div>
+                        </td>
+                        <td className="p-2.5 text-[11px] text-slate-600 max-w-xs truncate">
+                          {a.metadata?.details || a.metadata?.documentTitle || (a.entityType ? `${a.entityType}: ${a.entityId?.slice(0, 8)}...` : 'System Event')}
+                        </td>
+                        <td className="p-2.5 font-mono text-[11px] text-slate-600">
+                          {a.eventHash ? `${a.eventHash.slice(0, 10)}...${a.eventHash.slice(-6)}` : 'N/A'}
+                        </td>
+                        <td className="p-2.5">
+                          {isCompromised ? (
+                            <Badge variant="danger" size="sm">
+                              COMPROMISED
+                            </Badge>
+                          ) : (
+                            <Badge variant="success" size="sm">
+                              VALID
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
 

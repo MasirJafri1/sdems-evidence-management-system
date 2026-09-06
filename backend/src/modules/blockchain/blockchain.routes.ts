@@ -17,5 +17,6 @@ router.get(
 );
 
 router.get("/document-versions/:versionId/verify", authenticate, verifyVersion);
+router.post("/document-versions/:versionId/verify", authenticate, verifyVersion);
 
 export default router;

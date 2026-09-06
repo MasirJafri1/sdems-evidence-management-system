@@ -21,18 +21,27 @@ export const AuditPage: React.FC = () => {
     try {
       const data = await getGlobalAuditHistoryApi();
       if (data && Array.isArray(data.events)) {
-        const mapped: MockAuditEvent[] = data.events.map((e: any) => ({
-          id: e.id,
-          sequence: e.sequence,
-          timestamp: e.createdAt,
-          eventType: (e.eventType || 'SYSTEM_EVENT').replace(/_/g, ' '),
-          actor: e.actor ? `${e.actor.name} (${e.actor.email})` : 'System Service / Automated',
-          organization: user?.organization?.name || 'Department Custody Vault',
-          caseNumber: e.case?.caseNumber || 'GLOBAL',
-          eventHash: e.eventHash,
-          previousHash: e.previousHash || '0000000000000000000000000000000000000000000000000000000000000000',
-          integrity: 'VALID',
-        }));
+        const mapped: MockAuditEvent[] = data.events.map((e: any) => {
+          const isCompromised =
+            e.eventType === 'DOCUMENT_VERIFIED' &&
+            (e.metadata?.status === 'COMPROMISED' || e.metadata?.verificationResult === false);
+
+          const isAccessDenied = e.eventType === 'ACCESS_DENIED';
+
+          return {
+            id: e.id,
+            sequence: e.sequence,
+            timestamp: e.createdAt,
+            eventType: (e.eventType || 'SYSTEM_EVENT').replace(/_/g, ' '),
+            actor: e.actor ? `${e.actor.name} (${e.actor.email})` : 'System Service / Automated',
+            organization: e.case?.organization?.name || user?.organization?.name || 'Department Custody Vault',
+            caseNumber: e.case?.caseNumber || 'GLOBAL',
+            eventHash: e.eventHash,
+            previousHash: e.previousHash || '0000000000000000000000000000000000000000000000000000000000000000',
+            integrity: isCompromised ? 'COMPROMISED' : isAccessDenied ? 'BLOCKED' : 'VALID',
+            metadata: e.metadata,
+          };
+        });
         setLogs(mapped);
       }
     } catch (err) {
