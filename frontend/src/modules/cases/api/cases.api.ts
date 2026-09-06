@@ -21,6 +21,11 @@ export interface CaseApiRecord {
       email: string;
     };
   }>;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
   createdAt: string;
   updatedAt: string;
   _count?: {

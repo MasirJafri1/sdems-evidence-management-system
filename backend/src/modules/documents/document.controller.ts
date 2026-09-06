@@ -294,6 +294,7 @@ export async function listDocuments(req: AuthenticatedRequest, res: Response) {
           fileSize: true,
           sha256Hash: true,
           uploadedAt: true,
+          blockchainAnchor: true,
           uploadedBy: {
             select: {
               id: true,
@@ -310,13 +311,32 @@ export async function listDocuments(req: AuthenticatedRequest, res: Response) {
   });
 
   res.json(
-    documents.map((document) => ({
-      ...document,
-      versions: document.versions.map((version) => ({
-        ...version,
-        fileSize: version.fileSize.toString()
-      }))
-    }))
+    documents.map((document) => {
+      const latestVersion = document.versions?.[0];
+      return {
+        ...document,
+        uploadedBy: latestVersion?.uploadedBy?.name || null,
+        uploadedByEmail: latestVersion?.uploadedBy?.email || null,
+        sha256Hash: latestVersion?.sha256Hash || null,
+        fileSize: latestVersion ? latestVersion.fileSize.toString() : null,
+        version: latestVersion ? `v${latestVersion.versionNumber}.0` : "v1.0",
+        blockchainAnchorId: latestVersion?.blockchainAnchor?.id || null,
+        transactionHash: latestVersion?.blockchainAnchor?.transactionHash || null,
+        blockNumber: latestVersion?.blockchainAnchor?.blockNumber ? Number(latestVersion.blockchainAnchor.blockNumber) : null,
+        anchoredTimestamp: latestVersion?.blockchainAnchor?.anchoredAt || latestVersion?.uploadedAt || document.createdAt,
+        versions: document.versions.map((version) => ({
+          ...version,
+          fileSize: version.fileSize.toString(),
+          blockchainAnchor: version.blockchainAnchor
+            ? {
+                ...version.blockchainAnchor,
+                chainId: version.blockchainAnchor.chainId.toString(),
+                blockNumber: version.blockchainAnchor.blockNumber?.toString() ?? null
+              }
+            : null
+        }))
+      };
+    })
   );
 }
 
@@ -366,20 +386,32 @@ export async function listOrganizationDocuments(req: AuthenticatedRequest, res: 
     });
 
     res.json(
-      documents.map((d) => ({
-        ...d,
-        versions: d.versions.map((v) => ({
-          ...v,
-          fileSize: v.fileSize.toString(),
-          blockchainAnchor: v.blockchainAnchor
-            ? {
-                ...v.blockchainAnchor,
-                chainId: v.blockchainAnchor.chainId.toString(),
-                blockNumber: v.blockchainAnchor.blockNumber?.toString() ?? null
-              }
-            : null
-        }))
-      }))
+      documents.map((d) => {
+        const latestVersion = d.versions?.[0];
+        return {
+          ...d,
+          uploadedBy: latestVersion?.uploadedBy?.name || null,
+          uploadedByEmail: latestVersion?.uploadedBy?.email || null,
+          sha256Hash: latestVersion?.sha256Hash || null,
+          fileSize: latestVersion ? latestVersion.fileSize.toString() : null,
+          version: latestVersion ? `v${latestVersion.versionNumber}.0` : "v1.0",
+          blockchainAnchorId: latestVersion?.blockchainAnchor?.id || null,
+          transactionHash: latestVersion?.blockchainAnchor?.transactionHash || null,
+          blockNumber: latestVersion?.blockchainAnchor?.blockNumber ? Number(latestVersion.blockchainAnchor.blockNumber) : null,
+          anchoredTimestamp: latestVersion?.blockchainAnchor?.anchoredAt || latestVersion?.uploadedAt || d.createdAt,
+          versions: d.versions.map((v) => ({
+            ...v,
+            fileSize: v.fileSize.toString(),
+            blockchainAnchor: v.blockchainAnchor
+              ? {
+                  ...v.blockchainAnchor,
+                  chainId: v.blockchainAnchor.chainId.toString(),
+                  blockNumber: v.blockchainAnchor.blockNumber?.toString() ?? null
+                }
+              : null
+          }))
+        };
+      })
     );
   } catch (error: any) {
     res.status(500).json({ message: "Failed to list documents", error: error.message });
@@ -404,6 +436,7 @@ export async function getDocument(req: AuthenticatedRequest, res: Response) {
           versionNumber: "asc"
         },
         include: {
+          blockchainAnchor: true,
           uploadedBy: {
             select: {
               id: true,
@@ -467,14 +500,31 @@ export async function getDocument(req: AuthenticatedRequest, res: Response) {
     userAgent: req.get("user-agent") ?? null
   });
 
-  res.json({
-    ...document,
-    versions: document.versions.map((version) => ({
-      ...version,
-      fileSize: version.fileSize.toString()
-    }))
-  });
-}
+    const latestVersion = document.versions?.[document.versions.length - 1];
+    res.json({
+      ...document,
+      uploadedBy: latestVersion?.uploadedBy?.name || null,
+      uploadedByEmail: latestVersion?.uploadedBy?.email || null,
+      sha256Hash: latestVersion?.sha256Hash || null,
+      fileSize: latestVersion ? latestVersion.fileSize.toString() : null,
+      version: latestVersion ? `v${latestVersion.versionNumber}.0` : "v1.0",
+      blockchainAnchorId: latestVersion?.blockchainAnchor?.id || null,
+      transactionHash: latestVersion?.blockchainAnchor?.transactionHash || null,
+      blockNumber: latestVersion?.blockchainAnchor?.blockNumber ? Number(latestVersion.blockchainAnchor.blockNumber) : null,
+      anchoredTimestamp: latestVersion?.blockchainAnchor?.anchoredAt || latestVersion?.uploadedAt || document.createdAt,
+      versions: document.versions.map((version) => ({
+        ...version,
+        fileSize: version.fileSize.toString(),
+        blockchainAnchor: version.blockchainAnchor
+          ? {
+              ...version.blockchainAnchor,
+              chainId: version.blockchainAnchor.chainId.toString(),
+              blockNumber: version.blockchainAnchor.blockNumber?.toString() ?? null
+            }
+          : null
+      }))
+    });
+  }
 
 /**
  * GET /api/documents/:documentId/versions/:versionNumber/download

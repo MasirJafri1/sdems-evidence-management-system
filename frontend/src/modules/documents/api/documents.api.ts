@@ -11,8 +11,9 @@ export interface DocumentApiRecord {
   sha256Hash?: string;
   blockchainAnchorId?: string;
   transactionHash?: string;
-  blockNumber?: number;
-  anchoredTimestamp?: string;
+  uploadedBy?: string;
+  uploadedByEmail?: string;
+  versions?: any[];
   createdAt: string;
 }
 

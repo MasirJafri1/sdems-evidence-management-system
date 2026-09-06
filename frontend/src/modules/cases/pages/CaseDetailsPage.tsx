@@ -202,8 +202,8 @@ export const CaseDetailsPage: React.FC = () => {
     caseType: caseRecord?.caseType || 'General Investigation',
     status: caseRecord?.status || 'Active',
     organization: caseRecord?.organization?.name || 'Central Bureau of Investigation',
-    leadOfficer: caseRecord?.participants?.[0]?.user?.name || 'Senior Inspector Rajesh Sharma',
-    officerEmail: caseRecord?.participants?.[0]?.user?.email || 'admin@cbi.gov',
+    leadOfficer: caseRecord?.createdBy?.name || caseRecord?.participants?.[0]?.user?.name || 'Investigating Officer',
+    officerEmail: caseRecord?.createdBy?.email || caseRecord?.participants?.[0]?.user?.email || 'officer@gov.in',
     createdAt: caseRecord?.createdAt || new Date().toISOString(),
   };
 

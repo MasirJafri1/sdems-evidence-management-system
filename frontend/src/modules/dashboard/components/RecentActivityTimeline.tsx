@@ -20,7 +20,7 @@ export const RecentActivityTimeline: React.FC = () => {
     realActivities.push({
       type: 'Document Uploaded',
       text: `${d.documentName} committed to S3 vault & anchored on-chain`,
-      actor: d.uploadedBy || 'Senior Inspector Rajesh Sharma',
+      actor: d.uploadedBy || 'Investigating Officer',
       time: new Date(d.uploadedDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       icon: FileUp,
     });

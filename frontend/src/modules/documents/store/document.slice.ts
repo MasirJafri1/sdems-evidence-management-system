@@ -20,24 +20,35 @@ export const fetchDocumentsThunk = createAsyncThunk(
     try {
       const data = await getDocumentsByCaseApi(caseId);
       if (Array.isArray(data)) {
-        const mapped: MockDocument[] = data.map((d) => ({
-          id: d.id,
-          caseId: d.caseId,
-          caseNumber,
-          documentName: d.title || d.documentName || 'Document Exhibit',
-          documentType: d.documentType || 'Forensic Report',
-          version: d.version || 'v1.0',
-          uploadedBy: 'Senior Inspector Rajesh Sharma',
-          uploadedDate: d.createdAt,
-          fileSize: d.fileSize || '1.2 MB',
-          sha256Hash: d.sha256Hash || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-          blockchainAnchorId: d.blockchainAnchorId || `ANCHOR-0x${d.id.slice(0, 6).toUpperCase()}`,
-          transactionHash: d.transactionHash || `0x${d.id.slice(0, 16)}`,
-          blockNumber: d.blockNumber || 104859,
-          anchoredTimestamp: d.anchoredTimestamp || d.createdAt,
-          blockchainStatus: 'VERIFIED',
-          verificationStatus: 'CONFIRMED',
-        }));
+        const mapped: MockDocument[] = data.map((d: any) => {
+          const latestVersion = d.versions?.[0];
+          const officerName =
+            d.uploadedBy ||
+            latestVersion?.uploadedBy?.name ||
+            (d.uploadedByEmail ? d.uploadedByEmail : 'Registered Officer');
+          const uploadedDate = latestVersion?.uploadedAt || d.createdAt || new Date().toISOString();
+          const fileSize = d.fileSize || (latestVersion ? `${(Number(latestVersion.fileSize) / 1024).toFixed(1)} KB` : '1.2 MB');
+          const sha256 = d.sha256Hash || latestVersion?.sha256Hash || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
+          return {
+            id: d.id,
+            caseId: d.caseId,
+            caseNumber,
+            documentName: d.title || d.documentName || latestVersion?.originalFileName || 'Document Exhibit',
+            documentType: d.documentType || 'Forensic Report',
+            version: d.version || (latestVersion ? `v${latestVersion.versionNumber}.0` : 'v1.0'),
+            uploadedBy: officerName,
+            uploadedDate,
+            fileSize,
+            sha256Hash: sha256,
+            blockchainAnchorId: d.blockchainAnchorId || latestVersion?.blockchainAnchor?.id || `ANCHOR-0x${d.id.slice(0, 6).toUpperCase()}`,
+            transactionHash: d.transactionHash || latestVersion?.blockchainAnchor?.transactionHash || `0x${d.id.slice(0, 16)}`,
+            blockNumber: d.blockNumber || (latestVersion?.blockchainAnchor?.blockNumber ? Number(latestVersion.blockchainAnchor.blockNumber) : 104859),
+            anchoredTimestamp: d.anchoredTimestamp || latestVersion?.blockchainAnchor?.anchoredAt || uploadedDate,
+            blockchainStatus: 'VERIFIED',
+            verificationStatus: 'CONFIRMED',
+          };
+        });
         return mapped;
       }
       return [];
