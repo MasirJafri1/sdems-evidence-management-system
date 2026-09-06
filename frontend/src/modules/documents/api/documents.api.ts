@@ -58,3 +58,19 @@ export const uploadDocumentApi = async (
 export const downloadDocumentVersionApi = (documentId: string, versionNumber: string): string => {
   return `${apiClient.defaults.baseURL}/documents/${documentId}/versions/${versionNumber}/download`;
 };
+
+export const uploadDocumentVersionApi = async (
+  documentId: string,
+  file: File
+): Promise<any> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await apiClient.post(`/documents/${documentId}/versions`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+

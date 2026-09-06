@@ -90,6 +90,14 @@ export async function getEvidence(
       id: evidenceId
     },
     include: {
+      case: {
+        select: {
+          id: true,
+          caseNumber: true,
+          title: true,
+          organization: true
+        }
+      },
       documentVersion: {
         include: {
           blockchainAnchor: true

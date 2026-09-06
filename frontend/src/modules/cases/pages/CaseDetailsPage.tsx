@@ -23,7 +23,6 @@ import {
   CheckCircle2,
   User,
   FileText,
-  History,
   UserPlus,
   Search,
   Key,

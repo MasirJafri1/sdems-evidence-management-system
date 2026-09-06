@@ -25,7 +25,7 @@ const initialState: CustodyState = {
       evidenceId: 'ev-001',
       evidenceNumber: 'EVID-2026-9041',
       fromCustodian: 'Sub-Inspector Anil Kumar',
-      toCustodian: 'Senior Inspector Rajesh Sharma',
+      toCustodian: 'Inspector Vikram Rathore',
       toOrganization: 'Central Bureau of Investigation',
       reason: 'Transfer seized laptop for forensic RAM extraction lab examination.',
       status: 'PENDING',

@@ -24,20 +24,42 @@ export const RegisterEvidenceModal: React.FC<RegisterEvidenceModalProps> = ({
   const { cases } = useCaseList();
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [title, setTitle] = useState('');
-  const [evidenceType, setEvidenceType] = useState('');
+  const [evidenceType, setEvidenceType] = useState('Physical Item');
   const [serialNumber, setSerialNumber] = useState('');
   const [storageLocation, setStorageLocation] = useState('CFSL Vault Locker 1A');
+
+  // Randomize initial case selection from available cases
+  React.useEffect(() => {
+    if (isOpen && cases.length > 0 && !selectedCaseId) {
+      const randomCase = cases[Math.floor(Math.random() * cases.length)];
+      setSelectedCaseId(randomCase.id);
+    }
+  }, [isOpen, cases, selectedCaseId]);
+
+  const handleRandomizeCase = () => {
+    if (cases.length === 0) return;
+    const filtered = cases.filter((c) => c.id !== selectedCaseId);
+    const pool = filtered.length > 0 ? filtered : cases;
+    const randomCase = pool[Math.floor(Math.random() * pool.length)];
+    setSelectedCaseId(randomCase.id);
+  };
+
+  const handleGenerateRandomSerial = () => {
+    const randomSerial = `SN-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.floor(10000 + Math.random() * 90000)}`;
+    setSerialNumber(randomSerial);
+  };
 
   const activeCaseId = selectedCaseId || cases[0]?.id || '';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !serialNumber || !activeCaseId) return;
+    if (!title || !activeCaseId) return;
+    const finalSerial = serialNumber.trim() || `SN-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.floor(10000 + Math.random() * 90000)}`;
     onSuccess({
       caseId: activeCaseId,
       title,
       evidenceType,
-      serialNumber,
+      serialNumber: finalSerial,
       storageLocation,
     });
     onClose();
@@ -47,7 +69,18 @@ export const RegisterEvidenceModal: React.FC<RegisterEvidenceModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Register Physical Evidence Item" maxWidth="md">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700 uppercase">Target Case Registry</label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-700 uppercase">Target Case Registry</label>
+            {cases.length > 1 && (
+              <button
+                type="button"
+                onClick={handleRandomizeCase}
+                className="text-[11px] text-blue-700 hover:text-blue-900 font-semibold cursor-pointer underline flex items-center gap-1"
+              >
+                🎲 Randomize Case
+              </button>
+            )}
+          </div>
           <select
             value={activeCaseId}
             onChange={(e) => setSelectedCaseId(e.target.value)}
@@ -81,13 +114,23 @@ export const RegisterEvidenceModal: React.FC<RegisterEvidenceModalProps> = ({
           placeholder="e.g. Mobile Device, Handgun, Document"
         />
 
-        <Input
-          label="Manufacturer Serial Number"
-          value={serialNumber}
-          onChange={(e) => setSerialNumber(e.target.value)}
-          required
-          placeholder="e.g. SN-892401-X"
-        />
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-700">Manufacturer Serial Number</label>
+            <button
+              type="button"
+              onClick={handleGenerateRandomSerial}
+              className="text-[11px] text-blue-700 hover:text-blue-900 font-semibold cursor-pointer underline"
+            >
+              🎲 Generate Random SN
+            </button>
+          </div>
+          <Input
+            value={serialNumber}
+            onChange={(e) => setSerialNumber(e.target.value)}
+            placeholder="e.g. SN-892401-X (or leave empty to randomize)"
+          />
+        </div>
         <Input
           label="Vault / Locker Storage Location"
           value={storageLocation}

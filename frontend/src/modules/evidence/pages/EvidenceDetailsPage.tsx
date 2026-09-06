@@ -50,7 +50,7 @@ export const EvidenceDetailsPage: React.FC = () => {
     evidenceType: 'Physical Item',
     serialNumber: evidenceRecord?.serialNumber || 'SN-VERIFIED-01',
     storageLocation: evidenceRecord?.storageLocation || 'CFSL Vault Locker 4B',
-    caseNumber: 'CASE-2026-Testing',
+    caseNumber: evidenceRecord?.case?.caseNumber || 'CASE-REG',
     currentCustodian: evidenceRecord?.currentCustodian?.name || 'Unknown Custodian',
     custodianOrganization: 'Central Bureau of Investigation',
     collectedBy: evidenceRecord?.createdBy?.name || 'Unknown User',

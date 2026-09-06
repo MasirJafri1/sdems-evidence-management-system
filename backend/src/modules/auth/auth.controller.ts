@@ -4,6 +4,7 @@ import { prisma } from "../../lib/prisma";
 import { comparePassword } from "../../utils/password";
 import { signToken } from "../../utils/jwt";
 import { loginSchema } from "./auth.schema";
+import { AuthenticatedRequest } from "../../middleware/auth";
 
 export async function login(req: Request, res: Response) {
   const parsed = loginSchema.safeParse(req.body);
@@ -85,3 +86,34 @@ export async function login(req: Request, res: Response) {
     }
   });
 }
+
+export async function updateProfile(req: AuthenticatedRequest, res: Response) {
+  const userId = req.userId!;
+  const { name } = req.body;
+
+  if (!name || typeof name !== "string" || name.trim().length === 0) {
+    res.status(400).json({ message: "Name is required" });
+    return;
+  }
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { name: name.trim() },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isActive: true
+      }
+    });
+
+    res.json({
+      message: "Profile updated successfully",
+      user: updated
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to update profile", error: error.message });
+  }
+}
+

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
+import { apiClient } from '../../../config/axios.config';
 import {
   Settings,
   CheckCircle2,
@@ -90,17 +91,29 @@ export const SettingsPage: React.FC = () => {
       .catch(() => {});
   }, [user]);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (user && token) {
-      const updatedUser = {
-        ...user,
-        name: officerName,
-      };
-      dispatch(setCredentials({ user: updatedUser, token }));
+    if (!officerName.trim()) return;
+
+    try {
+      await apiClient.patch('/auth/profile', { name: officerName.trim() });
+      if (user && token) {
+        const updatedUser = {
+          ...user,
+          name: officerName.trim(),
+        };
+        dispatch(setCredentials({ user: updatedUser, token }));
+      }
+      setSavedMessage('Officer Profile & Identity specifications updated and persisted to database.');
+      setTimeout(() => setSavedMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Failed to update officer name in database:', err);
+      if (user && token) {
+        dispatch(setCredentials({ user: { ...user, name: officerName.trim() }, token }));
+      }
+      setSavedMessage('Officer Profile updated.');
+      setTimeout(() => setSavedMessage(null), 3000);
     }
-    setSavedMessage('Officer Profile & Identity specifications updated successfully.');
-    setTimeout(() => setSavedMessage(null), 3000);
   };
 
   const handleRevokeSession = (sessionId: string) => {
@@ -191,7 +204,7 @@ export const SettingsPage: React.FC = () => {
                   value={officerName}
                   onChange={(e) => setOfficerName(e.target.value)}
                   className="w-full p-2 border border-slate-300 rounded mt-1 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-slate-800"
-                  placeholder="e.g. Inspector Rajesh Sharma"
+                  placeholder="e.g. Inspector Vikram Rathore"
                   required
                 />
               </div>

@@ -557,7 +557,7 @@ export const OrganizationsPage: React.FC = () => {
                   label="Admin Officer Full Name *"
                   value={adminName}
                   onChange={(e) => setAdminName(e.target.value)}
-                  placeholder="e.g. Inspector General Rajesh Sharma"
+                  placeholder="e.g. Inspector General Vikram Rathore"
                   required
                 />
                 <Input
