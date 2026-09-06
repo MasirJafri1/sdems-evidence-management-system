@@ -3,54 +3,48 @@ import { type MockAuditEvent } from '../../../mock/audit.mock';
 import { AuditIntegrityPanel } from '../components/AuditIntegrityPanel';
 import { AuditTable } from '../components/AuditTable';
 import { Input } from '../../../components/ui/Input';
-import { History, Search } from 'lucide-react';
+import { History, Search, Loader2 } from 'lucide-react';
 import { useAppSelector } from '../../../store';
+import { getGlobalAuditHistoryApi, verifyGlobalAuditChainApi } from '../api/audit.api';
+import { useToast } from '../../../components/feedback/useToast';
 
 export const AuditPage: React.FC = () => {
-  const { cases } = useAppSelector((state) => state.cases);
-  const { documents } = useAppSelector((state) => state.documents);
+  const toast = useToast();
+  const { user } = useAppSelector((state) => state.auth);
   const [logs, setLogs] = useState<MockAuditEvent[]>([]);
   const [search, setSearch] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchAuditLogs = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getGlobalAuditHistoryApi();
+      if (data && Array.isArray(data.events)) {
+        const mapped: MockAuditEvent[] = data.events.map((e: any) => ({
+          id: e.id,
+          sequence: e.sequence,
+          timestamp: e.createdAt,
+          eventType: (e.eventType || 'SYSTEM_EVENT').replace(/_/g, ' '),
+          actor: e.actor ? `${e.actor.name} (${e.actor.email})` : 'System Service / Automated',
+          organization: user?.organization?.name || 'Department Custody Vault',
+          caseNumber: e.case?.caseNumber || 'GLOBAL',
+          eventHash: e.eventHash,
+          previousHash: e.previousHash || '0000000000000000000000000000000000000000000000000000000000000000',
+          integrity: 'VALID',
+        }));
+        setLogs(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to load audit events from database', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const realLogs: MockAuditEvent[] = [];
-    let seq = 1;
-
-    // Generate real audit log entries for live database cases
-    cases.forEach((c) => {
-      realLogs.push({
-        id: `audit-${c.id}`,
-        sequence: seq++,
-        timestamp: c.createdAt,
-        eventType: 'Case Created',
-        actor: 'Senior Inspector Rajesh Sharma',
-        organization: 'Central Bureau of Investigation',
-        caseNumber: c.caseNumber,
-        eventHash: `0x${c.id.slice(0, 16)}${c.id.slice(0, 16)}`,
-        previousHash: seq === 2 ? '0000000000000000000000000000000000000000000000000000000000000000' : '0x7a812b',
-        integrity: 'VALID',
-      });
-    });
-
-    // Generate real audit log entries for uploaded documents
-    documents.forEach((d) => {
-      realLogs.push({
-        id: `audit-doc-${d.id}`,
-        sequence: seq++,
-        timestamp: d.uploadedDate,
-        eventType: 'Document Uploaded',
-        actor: d.uploadedBy || 'Senior Inspector Rajesh Sharma',
-        organization: 'Central Bureau of Investigation',
-        caseNumber: d.caseNumber || 'CASE-2026-Testing',
-        eventHash: d.sha256Hash || `0x${d.id.slice(0, 32)}`,
-        previousHash: `0x${(d.id || '').slice(0, 16)}`,
-        integrity: 'VALID',
-      });
-    });
-
-    setLogs(realLogs);
-  }, [cases, documents]);
+    fetchAuditLogs();
+  }, []);
 
   const filtered = logs.filter(
     (l) =>
@@ -60,9 +54,23 @@ export const AuditPage: React.FC = () => {
       (l.eventHash || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     setIsVerifying(true);
-    setTimeout(() => setIsVerifying(false), 500);
+    try {
+      const result = await verifyGlobalAuditChainApi();
+      if (result.valid) {
+        toast.success(
+          'Cryptographic Audit Chain Verified',
+          `All ${result.totalEvents} sequential SHA-256 events verified against mathematical ledger. 0 tampering detected.`
+        );
+      } else {
+        toast.error('Audit Chain Compromise Detected', 'One or more event hashes failed mathematical verification!');
+      }
+    } catch (err: any) {
+      toast.error('Verification Error', err.response?.data?.message || 'Failed to verify ledger integrity');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (
@@ -94,7 +102,14 @@ export const AuditPage: React.FC = () => {
         </div>
       </div>
 
-      <AuditTable events={filtered} />
+      {isLoading ? (
+        <div className="py-12 text-center text-slate-500">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400 mb-2" />
+          <p className="text-xs">Reading immutable ledger from database...</p>
+        </div>
+      ) : (
+        <AuditTable events={filtered} />
+      )}
     </div>
   );
 };

@@ -84,8 +84,9 @@ export const verifyCaseApi = async (caseNumber: string): Promise<{ valid: boolea
   return response.data;
 };
 
-export const listCaseAccessRequestsApi = async (caseId: string) => {
-  const response = await apiClient.get(`/cases/${caseId}/access-requests`);
+export const listCaseAccessRequestsApi = async (caseId?: string) => {
+  const url = caseId ? `/cases/${caseId}/access-requests` : `/cases/access-requests`;
+  const response = await apiClient.get(url);
   return response.data;
 };
 

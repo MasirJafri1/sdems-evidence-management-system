@@ -4,12 +4,15 @@ import { upload } from "../../middleware/upload";
 import {
   createDocument,
   listDocuments,
+  listOrganizationDocuments,
   getDocument,
   downloadDocument,
   createDocumentVersion
 } from "./document.controller";
 
 const router = Router();
+
+router.get("/documents", authenticate, listOrganizationDocuments);
 
 router.post(
   "/cases/:caseId/documents",

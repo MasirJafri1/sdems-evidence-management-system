@@ -1,11 +1,12 @@
 import { Response } from "express";
+import fs from "fs";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma";
 import { s3 } from "../../lib/s3";
 import { env } from "../../config/env";
-import { calculateSha256 } from "../../utils/hash";
+import { calculateSha256, calculateFileSha256 } from "../../utils/hash";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import { createDocumentSchema } from "./document.schema";
 import { anchorDocumentVersion } from "../blockchain/blockchain.service";
@@ -111,7 +112,21 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  const hash = calculateSha256(file.buffer);
+  let hash: string;
+  let getFileStream: () => any;
+
+  if (file.path && fs.existsSync(file.path)) {
+    hash = await calculateFileSha256(file.path);
+    getFileStream = () => fs.createReadStream(file.path);
+  } else if (file.buffer) {
+    hash = calculateSha256(file.buffer);
+    getFileStream = () => file.buffer;
+  } else {
+    res.status(400).json({
+      message: "Invalid file uploaded"
+    });
+    return;
+  }
 
   const document = await prisma.document.create({
     data: {
@@ -139,7 +154,8 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
       new PutObjectCommand({
         Bucket: env.S3_BUCKET_NAME,
         Key: storageKey,
-        Body: file.buffer,
+        Body: getFileStream(),
+        ContentLength: file.size,
         ContentType: file.mimetype,
         ServerSideEncryption: "AES256",
         Metadata: {
@@ -220,9 +236,17 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
       where: {
         id: document.id
       }
-    });
+    }).catch(() => {});
 
     throw error;
+  } finally {
+    if (file.path && fs.existsSync(file.path)) {
+      try {
+        await fs.promises.unlink(file.path);
+      } catch (err) {
+        console.warn("Failed to cleanup temp upload file:", file.path, err);
+      }
+    }
   }
 }
 
@@ -294,6 +318,72 @@ export async function listDocuments(req: AuthenticatedRequest, res: Response) {
       }))
     }))
   );
+}
+
+/**
+ * GET /api/documents
+ * List all documents accessible within user's organization for verification/audit
+ */
+export async function listOrganizationDocuments(req: AuthenticatedRequest, res: Response) {
+  try {
+    const userId = req.userId!;
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+
+    const membership = await prisma.organizationMembership.findFirst({
+      where: { userId, status: "ACTIVE" }
+    });
+
+    const documents = await prisma.document.findMany({
+      where: {
+        ...(isSuperAdmin
+          ? {}
+          : membership
+          ? { case: { organizationId: membership.organizationId } }
+          : { case: { participants: { some: { userId, status: "ACTIVE" } } } }),
+        status: { not: "DELETED" }
+      },
+      include: {
+        case: {
+          select: {
+            id: true,
+            caseNumber: true,
+            title: true
+          }
+        },
+        versions: {
+          orderBy: { versionNumber: "desc" },
+          take: 1,
+          include: {
+            blockchainAnchor: true,
+            uploadedBy: {
+              select: { id: true, name: true, email: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    res.json(
+      documents.map((d) => ({
+        ...d,
+        versions: d.versions.map((v) => ({
+          ...v,
+          fileSize: v.fileSize.toString(),
+          blockchainAnchor: v.blockchainAnchor
+            ? {
+                ...v.blockchainAnchor,
+                chainId: v.blockchainAnchor.chainId.toString(),
+                blockNumber: v.blockchainAnchor.blockNumber?.toString() ?? null
+              }
+            : null
+        }))
+      }))
+    );
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to list documents", error: error.message });
+  }
 }
 
 /**
@@ -571,7 +661,22 @@ export async function createDocumentVersion(
   }
 
   const nextVersion = document.currentVersionNumber + 1;
-  const hash = calculateSha256(file.buffer);
+  let hash: string;
+  let getFileStream: () => any;
+
+  if (file.path && fs.existsSync(file.path)) {
+    hash = await calculateFileSha256(file.path);
+    getFileStream = () => fs.createReadStream(file.path);
+  } else if (file.buffer) {
+    hash = calculateSha256(file.buffer);
+    getFileStream = () => file.buffer;
+  } else {
+    res.status(400).json({
+      message: "Invalid file uploaded"
+    });
+    return;
+  }
+
   const safeFileName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
 
   const storageKey = [
@@ -583,95 +688,106 @@ export async function createDocumentVersion(
     safeFileName
   ].join("/");
 
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: env.S3_BUCKET_NAME,
-      Key: storageKey,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-      ServerSideEncryption: "AES256",
-      Metadata: {
-        documentId: document.id,
-        version: String(nextVersion),
-        sha256: hash
-      }
-    })
-  );
-
-  const result = await prisma.$transaction(async (tx) => {
-    const version = await tx.documentVersion.create({
-      data: {
-        documentId,
-        versionNumber: nextVersion,
-        originalFileName: file.originalname,
-        mimeType: file.mimetype,
-        fileSize: BigInt(file.size),
-        sha256Hash: hash,
-        storageProvider: "s3",
-        storageBucket: env.S3_BUCKET_NAME,
-        storageKey,
-        uploadedById: userId
-      }
-    });
-
-    const updatedDocument = await tx.document.update({
-      where: {
-        id: documentId
-      },
-      data: {
-        currentVersionNumber: nextVersion
-      }
-    });
-
-    return {
-      version,
-      updatedDocument
-    };
-  });
-
-  let blockchain;
-
   try {
-    blockchain = await anchorDocumentVersion({
-      documentVersionId: result.version.id,
-      caseId: document.caseId,
-      documentId,
-      versionNumber: result.version.versionNumber,
-      sha256Hash: result.version.sha256Hash
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: env.S3_BUCKET_NAME,
+        Key: storageKey,
+        Body: getFileStream(),
+        ContentLength: file.size,
+        ContentType: file.mimetype,
+        ServerSideEncryption: "AES256",
+        Metadata: {
+          documentId: document.id,
+          version: String(nextVersion),
+          sha256: hash
+        }
+      })
+    );
+
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await tx.documentVersion.create({
+        data: {
+          documentId,
+          versionNumber: nextVersion,
+          originalFileName: file.originalname,
+          mimeType: file.mimetype,
+          fileSize: BigInt(file.size),
+          sha256Hash: hash,
+          storageProvider: "s3",
+          storageBucket: env.S3_BUCKET_NAME,
+          storageKey,
+          uploadedById: userId
+        }
+      });
+
+      const updatedDocument = await tx.document.update({
+        where: {
+          id: documentId
+        },
+        data: {
+          currentVersionNumber: nextVersion
+        }
+      });
+
+      return {
+        version,
+        updatedDocument
+      };
     });
-  } catch (error) {
-    console.error("Blockchain anchoring failed:", error);
+
+    let blockchain;
+
+    try {
+      blockchain = await anchorDocumentVersion({
+        documentVersionId: result.version.id,
+        caseId: document.caseId,
+        documentId,
+        versionNumber: result.version.versionNumber,
+        sha256Hash: result.version.sha256Hash
+      });
+    } catch (error) {
+      console.error("Blockchain anchoring failed:", error);
+    }
+
+    await createAuditEvent({
+      caseId: document.caseId,
+      actorId: userId,
+      eventType: "DOCUMENT_VERSION_CREATED",
+      entityType: "DocumentVersion",
+      entityId: result.version.id,
+      metadata: {
+        documentId: document.id,
+        versionNumber: nextVersion,
+        sha256Hash: hash,
+        storageKey
+      },
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent") ?? null
+    });
+
+    res.status(201).json({
+      documentId,
+      currentVersion: result.updatedDocument.currentVersionNumber,
+      version: {
+        id: result.version.id,
+        versionNumber: result.version.versionNumber,
+        originalFileName: result.version.originalFileName,
+        mimeType: result.version.mimeType,
+        fileSize: result.version.fileSize.toString(),
+        sha256Hash: result.version.sha256Hash,
+        storageProvider: result.version.storageProvider,
+        uploadedAt: result.version.uploadedAt
+      },
+      blockchain
+    });
+  } finally {
+    if (file.path && fs.existsSync(file.path)) {
+      try {
+        await fs.promises.unlink(file.path);
+      } catch (err) {
+        console.warn("Failed to cleanup temp upload file:", file.path, err);
+      }
+    }
   }
-
-  await createAuditEvent({
-    caseId: document.caseId,
-    actorId: userId,
-    eventType: "DOCUMENT_VERSION_CREATED",
-    entityType: "DocumentVersion",
-    entityId: result.version.id,
-    metadata: {
-      documentId: document.id,
-      versionNumber: nextVersion,
-      sha256Hash: hash,
-      storageKey
-    },
-    ipAddress: req.ip,
-    userAgent: req.get("user-agent") ?? null
-  });
-
-  res.status(201).json({
-    documentId,
-    currentVersion: result.updatedDocument.currentVersionNumber,
-    version: {
-      id: result.version.id,
-      versionNumber: result.version.versionNumber,
-      originalFileName: result.version.originalFileName,
-      mimeType: result.version.mimeType,
-      fileSize: result.version.fileSize.toString(),
-      sha256Hash: result.version.sha256Hash,
-      storageProvider: result.version.storageProvider,
-      uploadedAt: result.version.uploadedAt
-    },
-    blockchain
-  });
 }

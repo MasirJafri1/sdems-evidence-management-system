@@ -22,3 +22,14 @@ export const verifyAuditChainApi = async (caseId: string): Promise<{ valid: bool
   const response = await apiClient.get<{ valid: boolean }>(`/cases/${caseId}/audit/verify`);
   return response.data;
 };
+
+export const getGlobalAuditHistoryApi = async (): Promise<{ totalEvents: number; events: any[] }> => {
+  const response = await apiClient.get('/audit');
+  return response.data;
+};
+
+export const verifyGlobalAuditChainApi = async (): Promise<{ valid: boolean; totalEvents: number; casesVerified?: number }> => {
+  const response = await apiClient.get('/audit/verify');
+  return response.data;
+};
+

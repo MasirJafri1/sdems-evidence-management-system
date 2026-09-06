@@ -367,19 +367,31 @@ export async function verifyCustodyHistory(evidenceId: string) {
   };
 }
 
-export async function getTransfersForUser(userId: string) {
+export async function getTransfersForUser(userId: string, isSuperAdmin = false) {
   return prisma.custodyTransfer.findMany({
-    where: {
-      OR: [
-        { fromUserId: userId },
-        { toUserId: userId }
-      ]
-    },
+    where: isSuperAdmin
+      ? {}
+      : {
+          OR: [
+            { fromUserId: userId },
+            { toUserId: userId }
+          ]
+        },
     include: {
       evidence: {
         select: {
+          id: true,
           evidenceNumber: true,
           title: true
+        }
+      },
+      custodyEvent: {
+        select: {
+          id: true,
+          eventHash: true,
+          sequence: true,
+          blockchainAnchorId: true,
+          blockchainTransactionHash: true
         }
       },
       fromUser: {

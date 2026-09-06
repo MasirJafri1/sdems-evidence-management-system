@@ -3,33 +3,78 @@ import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
-import { ShieldAlert, CheckCircle2, XCircle, Send, Search, Building2, Clock, Loader2 } from 'lucide-react';
-import { verifyCaseApi } from '../../cases/api/cases.api';
+import { ShieldAlert, CheckCircle2, XCircle, Send, Search, Building2, Clock, Loader2, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { verifyCaseApi, listCaseAccessRequestsApi, requestCaseAccessApi, resolveCaseAccessRequestApi } from '../../cases/api/cases.api';
+import { useAppSelector } from '../../../store';
+import { useToast } from '../../../components/feedback/useToast';
 
-interface AccessRequest {
+interface AccessRequestItem {
   id: string;
   caseId: string;
-  caseTitle: string;
-  requestingOrg: string;
-  requestingOfficer: string;
-  targetOrg: string;
-  reason: string;
+  userId: string;
+  reason: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  requestedAt: string;
+  createdAt: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    memberships?: Array<{
+      organization?: {
+        id: string;
+        name: string;
+        code: string;
+      };
+    }>;
+  };
+  case?: {
+    id: string;
+    caseNumber: string;
+    title: string;
+    organization?: {
+      id: string;
+      name: string;
+      code: string;
+    };
+  };
 }
 
 export const AccessRequestsPage: React.FC = () => {
+  const toast = useToast();
+  const { user } = useAppSelector((state) => state.auth);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [targetCaseId, setTargetCaseId] = useState('');
   const [targetOrg, setTargetOrg] = useState('');
   const [reason, setReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isVerifying, setIsVerifying] = useState(false);
   const [isValidCase, setIsValidCase] = useState<boolean | null>(null);
   const [verifiedCaseTitle, setVerifiedCaseTitle] = useState<string | null>(null);
 
-  const [requests, setRequests] = useState<AccessRequest[]>([]);
+  const [requests, setRequests] = useState<AccessRequestItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [filterMode, setFilterMode] = useState<'ALL' | 'INBOUND' | 'OUTBOUND'>('ALL');
+
+  const fetchRequests = async () => {
+    setIsLoading(true);
+    try {
+      const data = await listCaseAccessRequestsApi();
+      if (Array.isArray(data)) {
+        setRequests(data);
+      }
+    } catch (err) {
+      console.error('Failed to load access requests', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
 
   useEffect(() => {
     if (!targetCaseId || targetCaseId.trim() === '') {
@@ -59,39 +104,62 @@ export const AccessRequestsPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [targetCaseId]);
 
-
-  const handleCreateRequest = (e: React.FormEvent) => {
+  const handleCreateRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newReq: AccessRequest = {
-      id: `req-${Date.now().toString().slice(-4)}`,
-      caseId: targetCaseId,
-      caseTitle: 'Cross-Agency Legal Case Record',
-      requestingOrg: 'Central Bureau of Investigation (CBI)',
-      requestingOfficer: 'Senior Officer (Current User)',
-      targetOrg: targetOrg || 'External Law Enforcement Agency',
-      reason,
-      status: 'PENDING',
-      requestedAt: new Date().toISOString(),
-    };
-    setRequests([newReq, ...requests]);
-    setTargetCaseId('');
-    setTargetOrg('');
-    setReason('');
-    setIsModalOpen(false);
+    if (!targetCaseId.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      await requestCaseAccessApi(targetCaseId.trim(), reason.trim());
+      toast.success('Access Request Submitted', `Request for ${targetCaseId} forwarded to holding agency.`);
+      setTargetCaseId('');
+      setTargetOrg('');
+      setReason('');
+      setIsModalOpen(false);
+      await fetchRequests();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Failed to submit access request';
+      toast.error('Submission Failed', msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleRespond = (id: string, newStatus: 'APPROVED' | 'REJECTED') => {
-    setRequests(
-      requests.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
-    );
+  const handleRespond = async (id: string, action: 'APPROVE' | 'REJECT') => {
+    try {
+      await resolveCaseAccessRequestApi(id, action);
+      toast.success(
+        action === 'APPROVE' ? 'Access Granted' : 'Request Denied',
+        `Access request has been ${action === 'APPROVE' ? 'approved' : 'rejected'} and permissions synced.`
+      );
+      await fetchRequests();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Failed to update request status';
+      toast.error('Action Failed', msg);
+    }
   };
 
-  const filteredRequests = requests.filter(
-    (r) =>
-      r.caseId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.requestingOrg.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.caseTitle.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRequests = requests.filter((r) => {
+    const caseTitle = r.case?.title || '';
+    const caseNumber = r.case?.caseNumber || '';
+    const officerName = r.user?.name || '';
+    const userOrg = r.user?.memberships?.[0]?.organization?.name || '';
+    const targetOrgName = r.case?.organization?.name || '';
+
+    const matchesSearch =
+      caseTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      caseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      officerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      userOrg.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      targetOrgName.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const isInbound = r.userId !== user?.id;
+    const isOutbound = r.userId === user?.id;
+
+    if (filterMode === 'INBOUND') return matchesSearch && isInbound;
+    if (filterMode === 'OUTBOUND') return matchesSearch && isOutbound;
+    return matchesSearch;
+  });
 
   return (
     <div className="space-y-6">
@@ -119,9 +187,9 @@ export const AccessRequestsPage: React.FC = () => {
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
         <div className="p-4 rounded border border-slate-200 bg-white shadow-xs border-l-4 border-l-amber-500">
-          <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Pending Approval</div>
+          <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Pending Inbound Approval</div>
           <div className="text-xl font-bold text-slate-900 font-mono mt-1">
-            {requests.filter((r) => r.status === 'PENDING').length} Requests
+            {requests.filter((r) => r.status === 'PENDING' && r.userId !== user?.id).length} Requests
           </div>
           <div className="text-slate-500 mt-1 font-medium">Awaiting Custodian Verification</div>
         </div>
@@ -135,15 +203,17 @@ export const AccessRequestsPage: React.FC = () => {
         </div>
 
         <div className="p-4 rounded border border-slate-200 bg-white shadow-xs border-l-4 border-l-indigo-600">
-          <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">ABAC Governance</div>
-          <div className="text-xl font-bold text-slate-900 font-mono mt-1">STRICT ENFORCEMENT</div>
-          <div className="text-slate-500 mt-1 font-medium">Attribute-Based Case Isolation</div>
+          <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Your Outbound Requests</div>
+          <div className="text-xl font-bold text-slate-900 font-mono mt-1">
+            {requests.filter((r) => r.userId === user?.id).length} Submitted
+          </div>
+          <div className="text-slate-500 mt-1 font-medium">Tracking Status Across Agencies</div>
         </div>
       </div>
 
       {/* Search & Filter */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-md w-full">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
@@ -153,6 +223,33 @@ export const AccessRequestsPage: React.FC = () => {
             className="w-full pl-9 pr-4 py-2 text-xs border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
           />
         </div>
+
+        <div className="flex items-center gap-1.5 self-start sm:self-auto text-xs bg-slate-100 p-1 rounded-md">
+          <button
+            onClick={() => setFilterMode('ALL')}
+            className={`px-3 py-1 rounded font-semibold transition-colors ${
+              filterMode === 'ALL' ? 'bg-white shadow-xs text-slate-900' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            All ({requests.length})
+          </button>
+          <button
+            onClick={() => setFilterMode('INBOUND')}
+            className={`px-3 py-1 rounded font-semibold transition-colors ${
+              filterMode === 'INBOUND' ? 'bg-white shadow-xs text-indigo-700' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Inbound ({requests.filter((r) => r.userId !== user?.id).length})
+          </button>
+          <button
+            onClick={() => setFilterMode('OUTBOUND')}
+            className={`px-3 py-1 rounded font-semibold transition-colors ${
+              filterMode === 'OUTBOUND' ? 'bg-white shadow-xs text-slate-900' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Outbound ({requests.filter((r) => r.userId === user?.id).length})
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -160,80 +257,114 @@ export const AccessRequestsPage: React.FC = () => {
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider">
+              <th className="p-3">Scope</th>
               <th className="p-3">Case Info & ID</th>
-              <th className="p-3">Requesting Agency</th>
-              <th className="p-3">Target Organization</th>
+              <th className="p-3">Requesting Officer & Agency</th>
+              <th className="p-3">Target Holding Agency</th>
               <th className="p-3">Reason / Justification</th>
               <th className="p-3">Status</th>
               <th className="p-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 font-medium bg-white">
-            {filteredRequests.length === 0 ? (
+            {isLoading ? (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-slate-500 italic">
-                  No access requests found matching your query.
+                <td colSpan={7} className="p-6 text-center text-slate-500">
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                    <span>Loading database access requests...</span>
+                  </div>
+                </td>
+              </tr>
+            ) : filteredRequests.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="p-6 text-center text-slate-500 italic">
+                  No access requests found.
                 </td>
               </tr>
             ) : (
-              filteredRequests.map((req) => (
-                <tr key={req.id} className="hover:bg-slate-50">
-                  <td className="p-3 space-y-0.5">
-                    <div className="font-bold text-slate-900">{req.caseTitle}</div>
-                    <div className="font-mono text-[11px] text-slate-500">{req.caseId}</div>
-                  </td>
-                  <td className="p-3">
-                    <div className="font-semibold text-slate-800">{req.requestingOrg}</div>
-                    <div className="text-[11px] text-slate-500">{req.requestingOfficer}</div>
-                  </td>
-                  <td className="p-3 font-semibold text-slate-700 flex items-center gap-1.5 pt-4">
-                    <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                    {req.targetOrg}
-                  </td>
-                  <td className="p-3 text-slate-600 max-w-xs truncate italic">{req.reason}</td>
-                  <td className="p-3">
-                    <Badge
-                      variant={
-                        req.status === 'APPROVED'
-                          ? 'success'
-                          : req.status === 'REJECTED'
-                          ? 'danger'
-                          : 'warning'
-                      }
-                      size="sm"
-                    >
-                      {req.status}
-                    </Badge>
-                  </td>
-                  <td className="p-3 text-right">
-                    {req.status === 'PENDING' ? (
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRespond(req.id, 'REJECTED')}
-                          leftIcon={<XCircle className="w-3.5 h-3.5 text-rose-600" />}
-                        >
-                          Deny
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => handleRespond(req.id, 'APPROVED')}
-                          leftIcon={<CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-                        >
-                          Grant Access
-                        </Button>
+              filteredRequests.map((req) => {
+                const isInbound = req.userId !== user?.id;
+                const canManage = isInbound && req.status === 'PENDING';
+
+                return (
+                  <tr key={req.id} className="hover:bg-slate-50">
+                    <td className="p-3">
+                      {isInbound ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                          <ArrowDownLeft className="w-3 h-3 text-amber-600" /> INBOUND
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                          <ArrowUpRight className="w-3 h-3 text-blue-600" /> OUTBOUND
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 space-y-0.5">
+                      <div className="font-bold text-slate-900">{req.case?.title || 'Case Record'}</div>
+                      <div className="font-mono text-[11px] text-slate-500">{req.case?.caseNumber || req.caseId}</div>
+                    </td>
+                    <td className="p-3">
+                      <div className="font-semibold text-slate-800">
+                        {req.user?.memberships?.[0]?.organization?.name || 'Requesting Agency'}
                       </div>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 font-mono">
-                        <Clock className="w-3 h-3 inline mr-1" />
-                        Decided
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))
+                      <div className="text-[11px] text-slate-500">
+                        {req.user?.name} ({req.user?.email})
+                      </div>
+                    </td>
+                    <td className="p-3 font-semibold text-slate-700">
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                        {req.case?.organization?.name || 'Target Agency'}
+                      </div>
+                    </td>
+                    <td className="p-3 text-slate-600 max-w-xs truncate italic" title={req.reason || ''}>
+                      {req.reason || 'No justification provided'}
+                    </td>
+                    <td className="p-3">
+                      <Badge
+                        variant={
+                          req.status === 'APPROVED'
+                            ? 'success'
+                            : req.status === 'REJECTED'
+                            ? 'danger'
+                            : 'warning'
+                        }
+                        size="sm"
+                      >
+                        {req.status}
+                      </Badge>
+                    </td>
+                    <td className="p-3 text-right">
+                      {canManage ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRespond(req.id, 'REJECT')}
+                            leftIcon={<XCircle className="w-3.5 h-3.5 text-rose-600" />}
+                          >
+                            Deny
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => handleRespond(req.id, 'APPROVE')}
+                            leftIcon={<CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                          >
+                            Grant Access
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          <Clock className="w-3 h-3 inline mr-1" />
+                          {req.status === 'PENDING' ? 'Awaiting Custodian' : 'Decided'}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -249,20 +380,20 @@ export const AccessRequestsPage: React.FC = () => {
         <form onSubmit={handleCreateRequest} className="space-y-4 text-xs">
           <div>
             <Input
-              label="Target Case ID (e.g. CASE-2026-0892)"
+              label="Target Case ID (e.g. CBI-OFT-20260905-XXXX)"
               value={targetCaseId}
               onChange={(e) => setTargetCaseId(e.target.value)}
-              placeholder="CASE-YYYY-XXXX"
+              placeholder="Enter Case ID or Case Number"
               required
             />
             {targetCaseId && (
               <div className="mt-1 flex items-center gap-1 text-[10px]">
                 {isVerifying ? (
-                  <><Loader2 className="w-3 h-3 animate-spin text-slate-400" /> <span className="text-slate-500">Verifying case ID...</span></>
+                  <><Loader2 className="w-3 h-3 animate-spin text-slate-400" /> <span className="text-slate-500">Verifying case ID in central registry...</span></>
                 ) : isValidCase ? (
                   <><CheckCircle2 className="w-3 h-3 text-emerald-500" /> <span className="text-emerald-600 font-medium">Case found: {verifiedCaseTitle}</span></>
                 ) : (
-                  <><XCircle className="w-3 h-3 text-rose-500" /> <span className="text-rose-600 font-medium">Invalid or unknown case ID</span></>
+                  <><XCircle className="w-3 h-3 text-rose-500" /> <span className="text-rose-600 font-medium">Case number not recognized</span></>
                 )}
               </div>
             )}
@@ -272,8 +403,7 @@ export const AccessRequestsPage: React.FC = () => {
             label="Target Holding Organization / Agency"
             value={targetOrg}
             onChange={(e) => setTargetOrg(e.target.value)}
-            placeholder="e.g. State Police Cyber Crime Division"
-            required
+            placeholder="e.g. Central Bureau of Investigation"
           />
 
           <div>
@@ -284,7 +414,7 @@ export const AccessRequestsPage: React.FC = () => {
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="State the statutory reason or joint investigation mandate..."
+              placeholder="State statutory mandate (e.g. Joint investigation under PMLA Sec 54 or CrPC Sec 91)..."
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
             />
@@ -294,7 +424,7 @@ export const AccessRequestsPage: React.FC = () => {
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" leftIcon={<Send className="w-4 h-4" />}>
+            <Button type="submit" variant="primary" isLoading={isSubmitting} leftIcon={<Send className="w-4 h-4" />}>
               Submit Request
             </Button>
           </div>

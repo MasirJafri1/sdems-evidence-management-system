@@ -8,7 +8,7 @@ export const useDocuments = () => {
   const { user } = useAppSelector((state) => state.auth);
   const { documents, isLoading, error } = useAppSelector((state) => state.documents);
 
-  const targetOrgId = user?.organizationId || 'cmtfg5cer0000mh0w2bnhp068';
+  const targetOrgId = user?.organizationId || 'all';
 
   const fetchAllDocuments = async () => {
     try {

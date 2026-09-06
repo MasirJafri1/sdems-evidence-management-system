@@ -11,8 +11,6 @@ export const useEvidence = () => {
   const [evidenceList, setEvidenceList] = useState<MockEvidence[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const targetOrgId = user?.organizationId || 'cmtfg5cer0000mh0w2bnhp068';
-
   const fetchEvidence = async () => {
     setIsLoading(true);
     try {
@@ -22,16 +20,24 @@ export const useEvidence = () => {
           id: e.id,
           evidenceNumber: e.evidenceNumber,
           caseId: e.caseId,
-          caseNumber: 'CASE-2026-Testing',
+          caseNumber: e.case?.caseNumber || 'CASE-GENERAL',
           title: e.title,
-          evidenceType: 'Physical Item',
-          serialNumber: e.serialNumber || 'SN-VERIFIED',
-          status: 'In Custody',
-          currentCustodian: 'Senior Inspector Rajesh Sharma',
-          custodianOrganization: 'Central Bureau of Investigation',
-          storageLocation: e.storageLocation || 'CFSL Vault Locker 4B',
+          evidenceType: (e.documentVersion ? 'Storage Media' : 'Physical Item') as MockEvidence['evidenceType'],
+          serialNumber: e.serialNumber || e.description || 'SN-VERIFIED',
+          status: (e.status === 'ACTIVE'
+            ? 'In Custody'
+            : e.status === 'IN_TRANSFER'
+            ? 'Transfer Pending'
+            : e.status === 'RELEASED'
+            ? 'Released'
+            : e.status === 'ARCHIVED'
+            ? 'Archived'
+            : 'In Custody') as MockEvidence['status'],
+          currentCustodian: e.currentCustodian?.name || e.createdBy?.name || user?.name || 'Authorized Custodian',
+          custodianOrganization: user?.organization?.name || 'Department Custody Vault',
+          storageLocation: e.storageLocation || 'Vault Locker A-1',
           dateCollected: e.createdAt,
-          collectedBy: 'Senior Inspector Rajesh Sharma',
+          collectedBy: e.createdBy?.name || user?.name || 'Authorized Officer',
           custodyChainStatus: 'CUSTODY CHAIN VALID',
           history: [],
         }));
@@ -48,7 +54,7 @@ export const useEvidence = () => {
 
   useEffect(() => {
     fetchEvidence();
-  }, [targetOrgId]);
+  }, [user?.organizationId]);
 
   const createEvidence = async (data: {
     caseId: string;
@@ -64,16 +70,16 @@ export const useEvidence = () => {
         id: created.id,
         evidenceNumber: created.evidenceNumber,
         caseId: created.caseId,
-        caseNumber: 'CASE-2026-Testing',
+        caseNumber: created.case?.caseNumber || 'CASE-GENERAL',
         title: created.title,
         evidenceType: data.evidenceType as any,
         serialNumber: data.serialNumber,
         status: 'In Custody',
-        currentCustodian: 'Senior Inspector Rajesh Sharma',
-        custodianOrganization: 'Central Bureau of Investigation',
+        currentCustodian: user?.name || 'Authorized Custodian',
+        custodianOrganization: user?.organization?.name || 'Department Custody Vault',
         storageLocation: data.storageLocation,
         dateCollected: created.createdAt,
-        collectedBy: 'Senior Inspector Rajesh Sharma',
+        collectedBy: user?.name || 'Authorized Officer',
         custodyChainStatus: 'CUSTODY CHAIN VALID',
         history: [],
       };

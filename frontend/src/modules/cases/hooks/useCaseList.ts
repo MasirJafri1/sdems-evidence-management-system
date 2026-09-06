@@ -76,9 +76,14 @@ export const useCaseList = () => {
     (selectedOrgId !== 'ALL' ? selectedOrgId : null) ||
     user?.organizationId ||
     organizations[0]?.id ||
-    'cmtfg5cer0000mh0w2bnhp068';
+    '';
 
   const createNewCase = async (input: CreateCaseInput): Promise<{ success: boolean; error?: string }> => {
+    if (!targetOrgIdForCreate) {
+      toast.error('Organization Required', 'Please enroll or select an active law enforcement organization before creating a case.');
+      return { success: false, error: 'Organization ID is required' };
+    }
+
     const validation = createCaseSchema.safeParse(input);
     if (!validation.success) {
       const err = validation.error.issues[0]?.message || 'Invalid case parameters';

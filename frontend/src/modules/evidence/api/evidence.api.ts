@@ -12,6 +12,22 @@ export interface EvidenceApiRecord {
   currentCustodianId?: string;
   storageLocation?: string;
   createdAt: string;
+  case?: {
+    id: string;
+    caseNumber: string;
+    title: string;
+  };
+  documentVersion?: any;
+  currentCustodian?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
 }
 
 export interface CustodyEventRecord {

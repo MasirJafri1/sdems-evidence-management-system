@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppSelector } from '../../../store';
 import {
   getOrganizationUsersApi,
+  getOrganizationsApi,
   createUserApi,
   lookupUserApi,
 } from '../../organizations/api/organization.api';
@@ -73,12 +74,33 @@ export const UsersPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('Password123!');
 
-  const targetOrgId = user?.organizationId || 'cmtfg5cer0000mh0w2bnhp068';
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('ALL');
+  const [enrollOrgId, setEnrollOrgId] = useState<string>(user?.organizationId || '');
+
   const isSuperAdmin = user?.isSuperAdmin || user?.email === 'superadmin@gov.in';
+
+  useEffect(() => {
+    getOrganizationsApi()
+      .then((orgs) => {
+        if (Array.isArray(orgs)) {
+          setOrganizations(orgs);
+          if (!enrollOrgId && orgs.length > 0) {
+            setEnrollOrgId(user?.organizationId || orgs[0].id);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [user?.organizationId]);
 
   const fetchUsers = async () => {
     try {
-      const data = await getOrganizationUsersApi(targetOrgId);
+      const activeOrgId =
+        selectedOrgId !== 'ALL'
+          ? selectedOrgId
+          : (user?.organizationId || organizations[0]?.id || 'all');
+
+      const data = await getOrganizationUsersApi(activeOrgId);
 
       if (Array.isArray(data) && data.length > 0) {
         const mapped: MockUser[] = data.map((u: any) => {
@@ -110,7 +132,7 @@ export const UsersPage: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, [targetOrgId, isSuperAdmin]);
+  }, [selectedOrgId, user?.organizationId, isSuperAdmin, organizations]);
 
   useEffect(() => {
     if (isAddUserOpen) {
@@ -120,8 +142,11 @@ export const UsersPage: React.FC = () => {
       setExistingUserId('');
       setCustomRoleTitle('Investigating Officer');
       setSelectedPermissions(DEFAULT_OFFICER_PERMS);
+      if (!enrollOrgId && organizations.length > 0) {
+        setEnrollOrgId(user?.organizationId || organizations[0].id);
+      }
     }
-  }, [isAddUserOpen, targetOrgId]);
+  }, [isAddUserOpen, enrollOrgId, organizations]);
 
   const handleUserLookup = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -165,6 +190,13 @@ export const UsersPage: React.FC = () => {
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    const orgToEnroll = enrollOrgId || (selectedOrgId !== 'ALL' ? selectedOrgId : null) || user?.organizationId || organizations[0]?.id;
+    if (!orgToEnroll) {
+      setErrorMessage('Please enroll or select an organization before creating an officer account.');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       if (enrollMode === 'EXISTING') {
         if (!existingUserId) {
@@ -173,7 +205,7 @@ export const UsersPage: React.FC = () => {
           return;
         }
 
-        await createUserApi(targetOrgId, {
+        await createUserApi(orgToEnroll, {
           mode: 'EXISTING',
           existingUserId,
           roleName: customRoleTitle,
@@ -183,7 +215,7 @@ export const UsersPage: React.FC = () => {
         const officerName = searchedUser?.name || `User ID: ${existingUserId}`;
         setSuccessMessage(`✅ Existing officer "${officerName}" successfully enrolled into organization with role "${customRoleTitle}"!`);
       } else {
-        await createUserApi(targetOrgId, {
+        await createUserApi(orgToEnroll, {
           mode: 'NEW',
           name,
           email,
@@ -225,7 +257,22 @@ export const UsersPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {organizations.length > 0 && (
+            <select
+              value={selectedOrgId}
+              onChange={(e) => setSelectedOrgId(e.target.value)}
+              className="px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-800"
+            >
+              <option value="ALL">All Enrolled Agencies ({organizations.length})</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name} ({org.code})
+                </option>
+              ))}
+            </select>
+          )}
+
           <Button
             variant="primary"
             onClick={() => setIsAddUserOpen(true)}
@@ -338,6 +385,28 @@ export const UsersPage: React.FC = () => {
         maxWidth="lg"
       >
         <form onSubmit={handleAddUser} className="space-y-4 text-xs">
+          {/* Agency Assignment */}
+          {organizations.length > 0 && (
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                <Building className="w-3.5 h-3.5 text-slate-600" />
+                Assign to Law Enforcement Agency / Department *
+              </label>
+              <select
+                value={enrollOrgId}
+                onChange={(e) => setEnrollOrgId(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                required
+              >
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name} ({org.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Enroll Mode Toggle */}
           <div className="flex rounded border border-slate-300 p-1 bg-slate-100 gap-1">
             <button

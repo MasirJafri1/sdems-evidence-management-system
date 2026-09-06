@@ -536,7 +536,10 @@ export async function listMyTransfersController(
   res: Response
 ) {
   try {
-    const transfers = await getTransfersForUser(req.userId!);
+    const isSuperAdmin = req.userId
+      ? (await prisma.user.findUnique({ where: { id: req.userId } }))?.email === "superadmin@gov.in"
+      : false;
+    const transfers = await getTransfersForUser(req.userId!, isSuperAdmin);
     res.json(transfers);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch transfers";

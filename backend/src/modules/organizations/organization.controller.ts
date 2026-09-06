@@ -37,7 +37,7 @@ function hasPermission(membership: any, permissionName: string) {
   );
 }
 
-export async function createOrganization(req: Request, res: Response) {
+export async function createOrganization(req: AuthenticatedRequest, res: Response) {
   const parsed = createOrganizationSchema.safeParse(req.body);
 
   if (!parsed.success) {

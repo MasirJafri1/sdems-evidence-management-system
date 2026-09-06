@@ -522,12 +522,68 @@ export async function requestCaseAccess(req: AuthenticatedRequest, res: Response
 
 export async function listCaseAccessRequests(req: AuthenticatedRequest, res: Response) {
   try {
-    const caseId = req.params.caseId as string;
-    
+    const caseId = req.params.caseId as string | undefined;
+    const userId = req.userId!;
+
+    if (caseId) {
+      const requests = await prisma.caseAccessRequest.findMany({
+        where: { caseId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              memberships: {
+                include: { organization: { select: { id: true, name: true, code: true } } }
+              }
+            }
+          },
+          case: {
+            select: {
+              id: true,
+              caseNumber: true,
+              title: true,
+              organization: { select: { id: true, name: true, code: true } }
+            }
+          }
+        },
+        orderBy: { createdAt: "desc" }
+      });
+      res.json(requests);
+      return;
+    }
+
+    const membership = await prisma.organizationMembership.findFirst({
+      where: { userId, status: "ACTIVE" }
+    });
+
     const requests = await prisma.caseAccessRequest.findMany({
-      where: { caseId, status: "PENDING" },
+      where: {
+        OR: [
+          { userId },
+          ...(membership ? [{ case: { organizationId: membership.organizationId } }] : [])
+        ]
+      },
       include: {
-        user: { select: { id: true, name: true, email: true } }
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            memberships: {
+              include: { organization: { select: { id: true, name: true, code: true } } }
+            }
+          }
+        },
+        case: {
+          select: {
+            id: true,
+            caseNumber: true,
+            title: true,
+            organization: { select: { id: true, name: true, code: true } }
+          }
+        }
       },
       orderBy: { createdAt: "desc" }
     });
@@ -545,7 +601,8 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
     const approverId = req.userId!;
 
     const accessReq = await prisma.caseAccessRequest.findUnique({
-      where: { id: requestId }
+      where: { id: requestId },
+      include: { case: true }
     });
     
     if (!accessReq) {
@@ -558,12 +615,24 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
       return;
     }
 
+    const currentUser = await prisma.user.findUnique({ where: { id: approverId } });
+    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+
     const approverParticipant = await prisma.caseParticipant.findUnique({
       where: { caseId_userId: { caseId: accessReq.caseId, userId: approverId } }
     });
-    
-    if (!approverParticipant || !approverParticipant.isCaseAdmin) {
-      res.status(403).json({ message: "Only case administrators can approve access requests" });
+    const isCaseAdmin = approverParticipant?.isCaseAdmin;
+
+    const isOrgMember = await prisma.organizationMembership.findFirst({
+      where: {
+        organizationId: accessReq.case.organizationId,
+        userId: approverId,
+        status: "ACTIVE"
+      }
+    });
+
+    if (!isSuperAdmin && !isCaseAdmin && !isOrgMember) {
+      res.status(403).json({ message: "Only case or organization administrators can approve access requests" });
       return;
     }
 

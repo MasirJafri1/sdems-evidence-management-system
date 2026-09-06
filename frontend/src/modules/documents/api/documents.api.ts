@@ -21,6 +21,11 @@ export const getDocumentsByCaseApi = async (caseId: string): Promise<DocumentApi
   return response.data;
 };
 
+export const listOrganizationDocumentsApi = async (): Promise<any[]> => {
+  const response = await apiClient.get<any[]>('/documents');
+  return response.data;
+};
+
 export const getDocumentByIdApi = async (documentId: string): Promise<DocumentApiRecord> => {
   const response = await apiClient.get<DocumentApiRecord>(`/documents/${documentId}`);
   return response.data;

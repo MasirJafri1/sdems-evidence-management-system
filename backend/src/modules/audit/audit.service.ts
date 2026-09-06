@@ -173,3 +173,30 @@ export async function verifyCaseAuditChain(caseId: string) {
     failures
   };
 }
+
+export async function getOrganizationAuditHistory(organizationId?: string) {
+  return prisma.auditEvent.findMany({
+    where: organizationId
+      ? { case: { organizationId } }
+      : undefined,
+    orderBy: {
+      createdAt: "desc"
+    },
+    include: {
+      actor: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      },
+      case: {
+        select: {
+          id: true,
+          caseNumber: true,
+          title: true
+        }
+      }
+    }
+  });
+}
