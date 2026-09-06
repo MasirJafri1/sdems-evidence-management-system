@@ -9,6 +9,7 @@ import blockchainRoutes from "./modules/blockchain/blockchain.routes";
 import auditRoutes from "./modules/audit/audit.routes";
 import evidenceRoutes from "./modules/evidence/evidence.routes";
 import authorizationRoutes from "./modules/authorization/authorization.routes";
+import searchRoutes from "./modules/search/search.routes";
 import { errorHandler } from "./middleware/error";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger";
@@ -41,6 +42,7 @@ app.use("/api", blockchainRoutes);
 app.use("/api", auditRoutes);
 app.use("/api", evidenceRoutes);
 app.use("/api/authorization", authorizationRoutes);
+app.use("/api/search", searchRoutes);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

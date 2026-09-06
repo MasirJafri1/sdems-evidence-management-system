@@ -19,9 +19,6 @@ async function verifyPermission(userId: string, caseId: string, permissionName: 
 }
 
 async function getCaseMembership(userId: string, caseId: string) {
-  const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
-
   const caseRecord = await prisma.case.findUnique({
     where: {
       id: caseId
@@ -29,6 +26,19 @@ async function getCaseMembership(userId: string, caseId: string) {
   });
 
   if (!caseRecord) {
+    return null;
+  }
+
+  const participant = await prisma.caseParticipant.findUnique({
+    where: {
+      caseId_userId: {
+        caseId,
+        userId
+      }
+    }
+  });
+
+  if (!participant || participant.status !== "ACTIVE") {
     return null;
   }
 
@@ -50,40 +60,15 @@ async function getCaseMembership(userId: string, caseId: string) {
     }
   });
 
-  if (isSuperAdmin) {
-    return {
-      caseRecord,
-      participant: null,
-      membership: membership ?? null
-    };
+  if (!membership) {
+    return null;
   }
 
-  const participant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId,
-        userId
-      }
-    }
-  });
-
-  if (participant && participant.status === "ACTIVE") {
-    return {
-      caseRecord,
-      participant,
-      membership: membership ?? null
-    };
-  }
-
-  if (membership && membership.organizationId === caseRecord.organizationId) {
-    return {
-      caseRecord,
-      participant: null,
-      membership
-    };
-  }
-
-  return null;
+  return {
+    caseRecord,
+    participant,
+    membership
+  };
 }
 
 /**
@@ -251,7 +236,7 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
       where: {
         id: document.id
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     throw error;
   } finally {
@@ -309,7 +294,6 @@ export async function listDocuments(req: AuthenticatedRequest, res: Response) {
           fileSize: true,
           sha256Hash: true,
           uploadedAt: true,
-          blockchainAnchor: true,
           uploadedBy: {
             select: {
               id: true,
@@ -326,32 +310,13 @@ export async function listDocuments(req: AuthenticatedRequest, res: Response) {
   });
 
   res.json(
-    documents.map((document) => {
-      const latestVersion = document.versions?.[0];
-      return {
-        ...document,
-        uploadedBy: latestVersion?.uploadedBy?.name || null,
-        uploadedByEmail: latestVersion?.uploadedBy?.email || null,
-        sha256Hash: latestVersion?.sha256Hash || null,
-        fileSize: latestVersion ? latestVersion.fileSize.toString() : null,
-        version: latestVersion ? `v${latestVersion.versionNumber}.0` : "v1.0",
-        blockchainAnchorId: latestVersion?.blockchainAnchor?.id || null,
-        transactionHash: latestVersion?.blockchainAnchor?.transactionHash || null,
-        blockNumber: latestVersion?.blockchainAnchor?.blockNumber ? Number(latestVersion.blockchainAnchor.blockNumber) : null,
-        anchoredTimestamp: latestVersion?.blockchainAnchor?.anchoredAt || latestVersion?.uploadedAt || document.createdAt,
-        versions: document.versions.map((version) => ({
-          ...version,
-          fileSize: version.fileSize.toString(),
-          blockchainAnchor: version.blockchainAnchor
-            ? {
-                ...version.blockchainAnchor,
-                chainId: version.blockchainAnchor.chainId.toString(),
-                blockNumber: version.blockchainAnchor.blockNumber?.toString() ?? null
-              }
-            : null
-        }))
-      };
-    })
+    documents.map((document) => ({
+      ...document,
+      versions: document.versions.map((version) => ({
+        ...version,
+        fileSize: version.fileSize.toString()
+      }))
+    }))
   );
 }
 
@@ -374,8 +339,8 @@ export async function listOrganizationDocuments(req: AuthenticatedRequest, res: 
         ...(isSuperAdmin
           ? {}
           : membership
-          ? { case: { organizationId: membership.organizationId } }
-          : { case: { participants: { some: { userId, status: "ACTIVE" } } } }),
+            ? { case: { organizationId: membership.organizationId } }
+            : { case: { participants: { some: { userId, status: "ACTIVE" } } } }),
         status: { not: "DELETED" }
       },
       include: {
@@ -401,32 +366,20 @@ export async function listOrganizationDocuments(req: AuthenticatedRequest, res: 
     });
 
     res.json(
-      documents.map((d) => {
-        const latestVersion = d.versions?.[0];
-        return {
-          ...d,
-          uploadedBy: latestVersion?.uploadedBy?.name || null,
-          uploadedByEmail: latestVersion?.uploadedBy?.email || null,
-          sha256Hash: latestVersion?.sha256Hash || null,
-          fileSize: latestVersion ? latestVersion.fileSize.toString() : null,
-          version: latestVersion ? `v${latestVersion.versionNumber}.0` : "v1.0",
-          blockchainAnchorId: latestVersion?.blockchainAnchor?.id || null,
-          transactionHash: latestVersion?.blockchainAnchor?.transactionHash || null,
-          blockNumber: latestVersion?.blockchainAnchor?.blockNumber ? Number(latestVersion.blockchainAnchor.blockNumber) : null,
-          anchoredTimestamp: latestVersion?.blockchainAnchor?.anchoredAt || latestVersion?.uploadedAt || d.createdAt,
-          versions: d.versions.map((v) => ({
-            ...v,
-            fileSize: v.fileSize.toString(),
-            blockchainAnchor: v.blockchainAnchor
-              ? {
-                  ...v.blockchainAnchor,
-                  chainId: v.blockchainAnchor.chainId.toString(),
-                  blockNumber: v.blockchainAnchor.blockNumber?.toString() ?? null
-                }
-              : null
-          }))
-        };
-      })
+      documents.map((d) => ({
+        ...d,
+        versions: d.versions.map((v) => ({
+          ...v,
+          fileSize: v.fileSize.toString(),
+          blockchainAnchor: v.blockchainAnchor
+            ? {
+              ...v.blockchainAnchor,
+              chainId: v.blockchainAnchor.chainId.toString(),
+              blockNumber: v.blockchainAnchor.blockNumber?.toString() ?? null
+            }
+            : null
+        }))
+      }))
     );
   } catch (error: any) {
     res.status(500).json({ message: "Failed to list documents", error: error.message });
@@ -451,7 +404,6 @@ export async function getDocument(req: AuthenticatedRequest, res: Response) {
           versionNumber: "asc"
         },
         include: {
-          blockchainAnchor: true,
           uploadedBy: {
             select: {
               id: true,
@@ -515,31 +467,14 @@ export async function getDocument(req: AuthenticatedRequest, res: Response) {
     userAgent: req.get("user-agent") ?? null
   });
 
-    const latestVersion = document.versions?.[document.versions.length - 1];
-    res.json({
-      ...document,
-      uploadedBy: latestVersion?.uploadedBy?.name || null,
-      uploadedByEmail: latestVersion?.uploadedBy?.email || null,
-      sha256Hash: latestVersion?.sha256Hash || null,
-      fileSize: latestVersion ? latestVersion.fileSize.toString() : null,
-      version: latestVersion ? `v${latestVersion.versionNumber}.0` : "v1.0",
-      blockchainAnchorId: latestVersion?.blockchainAnchor?.id || null,
-      transactionHash: latestVersion?.blockchainAnchor?.transactionHash || null,
-      blockNumber: latestVersion?.blockchainAnchor?.blockNumber ? Number(latestVersion.blockchainAnchor.blockNumber) : null,
-      anchoredTimestamp: latestVersion?.blockchainAnchor?.anchoredAt || latestVersion?.uploadedAt || document.createdAt,
-      versions: document.versions.map((version) => ({
-        ...version,
-        fileSize: version.fileSize.toString(),
-        blockchainAnchor: version.blockchainAnchor
-          ? {
-              ...version.blockchainAnchor,
-              chainId: version.blockchainAnchor.chainId.toString(),
-              blockNumber: version.blockchainAnchor.blockNumber?.toString() ?? null
-            }
-          : null
-      }))
-    });
-  }
+  res.json({
+    ...document,
+    versions: document.versions.map((version) => ({
+      ...version,
+      fileSize: version.fileSize.toString()
+    }))
+  });
+}
 
 /**
  * GET /api/documents/:documentId/versions/:versionNumber/download
@@ -618,7 +553,7 @@ export async function downloadDocument(
       if (s3Item.ContentLength) {
         res.setHeader("Content-Length", s3Item.ContentLength.toString());
       }
-      
+
       await createAuditEvent({
         caseId: document.caseId,
         actorId: userId,
@@ -718,16 +653,9 @@ export async function createDocumentVersion(
     return;
   }
 
-  const canUploadVersion =
-    (await verifyPermission(userId, document.caseId, "DOCUMENT_VERSION_CREATE")) ||
-    (await verifyPermission(userId, document.caseId, "DOCUMENT_UPDATE")) ||
-    (await verifyPermission(userId, document.caseId, "DOCUMENT_UPLOAD")) ||
-    access.participant?.isCaseAdmin ||
-    Boolean(access.membership);
-
-  if (!canUploadVersion) {
+  if (!(await verifyPermission(userId, document.caseId, "DOCUMENT_VERSION_CREATE"))) {
     res.status(403).json({
-      message: "Missing permission to upload document version"
+      message: "Missing DOCUMENT_VERSION_CREATE permission"
     });
     return;
   }

@@ -4,7 +4,6 @@ import { AuthenticatedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { createCaseSchema, addParticipantSchema } from "./case.schema";
 import { createAuditEvent } from "../audit/audit.service";
-import { isUserSuperAdmin } from "../organizations/organization.controller";
 import { checkCasePermission, grantCasePermission } from "../authorization/authorization.service";
 
 async function getOrganizationMembership(
@@ -42,25 +41,20 @@ export async function createCase(req: AuthenticatedRequest, res: Response) {
   const userId = req.userId!;
   const organizationId = req.params.organizationId as string;
 
-  const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+  const membership = await getOrganizationMembership(userId, organizationId);
 
-  if (!isSuperAdmin) {
-    const membership = await getOrganizationMembership(userId, organizationId);
+  if (!membership) {
+    res.status(403).json({
+      message: "You are not a member of this organization"
+    });
+    return;
+  }
 
-    if (!membership) {
-      res.status(403).json({
-        message: "You are not a member of this organization"
-      });
-      return;
-    }
-
-    if (!hasPermission(membership, "CASE_CREATE")) {
-      res.status(403).json({
-        message: "Missing CASE_CREATE permission"
-      });
-      return;
-    }
+  if (!hasPermission(membership, "CASE_CREATE")) {
+    res.status(403).json({
+      message: "Missing CASE_CREATE permission"
+    });
+    return;
   }
 
   const parsed = createCaseSchema.safeParse(req.body);
@@ -334,46 +328,44 @@ export async function addParticipant(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  const currentUser = await prisma.user.findUnique({ where: { id: currentUserId } });
-  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
-
-  if (!isSuperAdmin) {
-    const currentParticipant = await prisma.caseParticipant.findUnique({
-      where: {
-        caseId_userId: {
-          caseId,
-          userId: currentUserId
-        }
+  const currentParticipant = await prisma.caseParticipant.findUnique({
+    where: {
+      caseId_userId: {
+        caseId,
+        userId: currentUserId
       }
+    }
+  });
+
+  if (!currentParticipant || currentParticipant.status !== "ACTIVE") {
+    res.status(403).json({
+      message: "You are not a participant of this case"
     });
+    return;
+  }
 
-    if (!currentParticipant || currentParticipant.status !== "ACTIVE") {
-      res.status(403).json({
-        message: "You are not a participant of this case"
-      });
-      return;
-    }
-
-    if (!currentParticipant.isCaseAdmin) {
-      res.status(403).json({
-        message: "Only case administrators can manage participants"
-      });
-      return;
-    }
+  if (!currentParticipant.isCaseAdmin) {
+    res.status(403).json({
+      message: "Only case administrators can manage participants"
+    });
+    return;
   }
 
   /*
-   * Case Participant Enrollment:
-   * Target user must exist and be active in the system.
-   * Can be an existing agency officer or an unassigned officer assigned directly to this case.
+   * Cross-Organization Support:
+   * Target user must have an active organization membership in ANY organization,
+   * not restricted to caseRecord.organizationId.
    */
-  const targetUser = await prisma.user.findUnique({
-    where: { id: parsed.data.userId }
+  const targetMembership = await prisma.organizationMembership.findFirst({
+    where: {
+      userId: parsed.data.userId,
+      status: "ACTIVE"
+    }
   });
 
-  if (!targetUser || !targetUser.isActive) {
-    res.status(404).json({
-      message: "Target officer not found or account is deactivated"
+  if (!targetMembership) {
+    res.status(400).json({
+      message: "User must have an active organization membership"
     });
     return;
   }
@@ -498,14 +490,8 @@ export async function requestCaseAccess(req: AuthenticatedRequest, res: Response
     const { caseNumber, reason } = req.body;
     const userId = req.userId!;
 
-    const query = caseNumber ? caseNumber.trim() : "";
     const caseRec = await prisma.case.findFirst({
-      where: {
-        OR: [
-          { caseNumber: query },
-          { id: query }
-        ]
-      }
+      where: { caseNumber }
     });
     
     if (!caseRec) {
@@ -539,9 +525,6 @@ export async function listCaseAccessRequests(req: AuthenticatedRequest, res: Res
     const caseId = req.params.caseId as string | undefined;
     const userId = req.userId!;
 
-    const reqUser = await prisma.user.findUnique({ where: { id: userId } });
-    const isSuperAdmin = reqUser?.email?.trim().toLowerCase() === "superadmin@gov.in";
-
     if (caseId) {
       const requests = await prisma.caseAccessRequest.findMany({
         where: { caseId },
@@ -571,43 +554,17 @@ export async function listCaseAccessRequests(req: AuthenticatedRequest, res: Res
       return;
     }
 
-    let whereClause: any = {};
-
-    if (isSuperAdmin) {
-      whereClause = {};
-    } else {
-      const userMemberships = await prisma.organizationMembership.findMany({
-        where: { userId, status: "ACTIVE" },
-        select: { organizationId: true }
-      });
-      const myOrgIds = userMemberships.map((m) => m.organizationId);
-
-      const myCaseParticipants = await prisma.caseParticipant.findMany({
-        where: { userId, status: "ACTIVE" },
-        select: { caseId: true }
-      });
-      const myCaseIds = myCaseParticipants.map((cp) => cp.caseId);
-
-      const createdCases = await prisma.case.findMany({
-        where: { createdById: userId },
-        select: { id: true }
-      });
-      const createdCaseIds = createdCases.map((c) => c.id);
-      const allMyCaseIds = Array.from(new Set([...myCaseIds, ...createdCaseIds]));
-
-      const orConditions: any[] = [{ userId }];
-      if (myOrgIds.length > 0) {
-        orConditions.push({ case: { organizationId: { in: myOrgIds } } });
-      }
-      if (allMyCaseIds.length > 0) {
-        orConditions.push({ caseId: { in: allMyCaseIds } });
-      }
-
-      whereClause = { OR: orConditions };
-    }
+    const membership = await prisma.organizationMembership.findFirst({
+      where: { userId, status: "ACTIVE" }
+    });
 
     const requests = await prisma.caseAccessRequest.findMany({
-      where: whereClause,
+      where: {
+        OR: [
+          { userId },
+          ...(membership ? [{ case: { organizationId: membership.organizationId } }] : [])
+        ]
+      },
       include: {
         user: {
           select: {
@@ -645,16 +602,7 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
 
     const accessReq = await prisma.caseAccessRequest.findUnique({
       where: { id: requestId },
-      include: {
-        case: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      }
+      include: { case: true }
     });
     
     if (!accessReq) {
@@ -668,7 +616,7 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
     }
 
     const currentUser = await prisma.user.findUnique({ where: { id: approverId } });
-    const isSuperAdmin = isUserSuperAdmin(currentUser?.email);
+    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
 
     const approverParticipant = await prisma.caseParticipant.findUnique({
       where: { caseId_userId: { caseId: accessReq.caseId, userId: approverId } }
@@ -688,8 +636,6 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
       return;
     }
 
-    let createdParticipantId: string | null = null;
-
     const updatedReq = await prisma.$transaction(async (tx) => {
       const uReq = await tx.caseAccessRequest.update({
         where: { id: requestId },
@@ -697,12 +643,11 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
       });
 
       if (action === 'APPROVE') {
-        const participant = await tx.caseParticipant.upsert({
+        await tx.caseParticipant.upsert({
           where: { caseId_userId: { caseId: accessReq.caseId, userId: accessReq.userId } },
           update: { status: "ACTIVE", removedAt: null },
           create: { caseId: accessReq.caseId, userId: accessReq.userId, status: "ACTIVE" }
         });
-        createdParticipantId = participant.id;
 
         const readPerms = await tx.permission.findMany({
           where: { name: { in: ['CASE_READ', 'DOCUMENT_READ', 'EVIDENCE_READ'] } }
@@ -729,34 +674,6 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
       }
       return uReq;
     });
-
-    // Write Cryptographic Audit Event
-    try {
-      await createAuditEvent({
-        caseId: accessReq.caseId,
-        actorId: approverId,
-        eventType: action === 'APPROVE' ? "USER_ADDED" : "ACCESS_DENIED",
-        entityType: "CaseAccessRequest",
-        entityId: requestId,
-        metadata: {
-          action,
-          requestId,
-          caseId: accessReq.caseId,
-          targetUserId: accessReq.userId,
-          targetUserName: accessReq.user?.name,
-          targetUserEmail: accessReq.user?.email,
-          reason: accessReq.reason,
-          participantId: createdParticipantId,
-          description: action === 'APPROVE'
-            ? `Case access granted to ${accessReq.user?.name} (${accessReq.user?.email})`
-            : `Case access request denied for ${accessReq.user?.name} (${accessReq.user?.email})`
-        },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent") ?? null
-      });
-    } catch (auditErr) {
-      console.error("Failed to record audit event for access request resolution:", auditErr);
-    }
 
     res.json(updatedReq);
   } catch (error: any) {

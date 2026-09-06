@@ -1,0 +1,420 @@
+import { esClient, SDEMS_SEARCH_INDEX } from "./elastic.client";
+import { generateEmbedding } from "./embedding.service";
+import { UserSearchScope } from "./scope.resolver";
+import { generateRetrievalSummary, RetrievalContextItem } from "./llm.service";
+import { prisma } from "../../lib/prisma";
+
+export interface IndexDocumentPayload {
+  id: string;
+  entityType: "DOCUMENT" | "EVIDENCE";
+  title: string;
+  content?: string;
+  summary?: string;
+  caseId: string;
+  caseNumber: string;
+  organizationId: string;
+  allowedUserIds?: string[];
+  classification?: string;
+  serialNumber?: string;
+  evidenceType?: string;
+  documentType?: string;
+  versionNumber?: number;
+  sha256Hash?: string;
+  blockchainAnchorId?: string;
+  tags?: string[];
+  status?: string;
+  uploadedBy?: string;
+  createdAt?: Date | string;
+}
+
+/**
+ * Indexes or updates a document/evidence entity in Elasticsearch.
+ * Computes vector embeddings in the background to avoid blocking critical transactions.
+ */
+export async function indexEntityInElasticsearch(payload: IndexDocumentPayload): Promise<void> {
+  try {
+    const textToEmbed = `${payload.title} ${payload.content || ""} ${payload.summary || ""} ${payload.serialNumber || ""} ${payload.evidenceType || ""}`.trim();
+    
+    // Generate embedding (from OpenRouter or fallback)
+    const embedding = await generateEmbedding(textToEmbed);
+
+    await esClient.index({
+      index: SDEMS_SEARCH_INDEX,
+      id: payload.id,
+      document: {
+        ...payload,
+        createdAt: payload.createdAt ? new Date(payload.createdAt).toISOString() : new Date().toISOString(),
+        embedding
+      },
+      refresh: "wait_for" // Ensures immediate queryability
+    });
+
+    console.log(`[Elasticsearch] Indexed ${payload.entityType} "${payload.title}" (${payload.id}) under Case "${payload.caseNumber}".`);
+  } catch (err: any) {
+    console.warn(`[Elasticsearch] Failed to index ${payload.entityType} (${payload.id}):`, err.message);
+  }
+}
+
+export interface SearchQueryOptions {
+  query: string;
+  entityType?: "ALL" | "DOCUMENT" | "EVIDENCE";
+  page?: number;
+  limit?: number;
+  useAiSynthesis?: boolean;
+}
+
+export interface SearchHitItem {
+  id: string;
+  entityType: "DOCUMENT" | "EVIDENCE";
+  title: string;
+  content: string;
+  caseId: string;
+  caseNumber: string;
+  organizationId: string;
+  serialNumber?: string;
+  evidenceType?: string;
+  documentType?: string;
+  versionNumber?: number;
+  sha256Hash?: string;
+  score: number;
+  highlightSnippet?: string;
+  uploadedBy?: string;
+  createdAt: string;
+}
+
+/**
+ * Executes a scoped hybrid search (BM25 + Semantic Vector + Strict RBAC Scope Filtering).
+ * Guaranteed Zero Data Leakage: Documents outside the user's permitted case/org are excluded at query time.
+ */
+export async function executeScopedSearch(
+  options: SearchQueryOptions,
+  scope: UserSearchScope
+): Promise<{
+  total: number;
+  hits: SearchHitItem[];
+  aiSummary?: string;
+  aiModel?: string;
+  aiLatencyMs?: number;
+}> {
+  const { query, entityType = "ALL", page = 1, limit = 20, useAiSynthesis = false } = options;
+  const from = (page - 1) * limit;
+
+  // 1. Build Strict Security Filters
+  const mustFilters: any[] = [];
+
+  if (!scope.isSuperAdmin) {
+    if (scope.isOrgAdmin && scope.organizationId) {
+      mustFilters.push({ term: { organizationId: scope.organizationId } });
+    } else {
+      // Officer / Investigator: strictly restricted to allowed cases or explicitly assigned documents
+      if (scope.allowedCaseIds.length === 0) {
+        // User is not participant in any case -> return 0 results
+        return { total: 0, hits: [] };
+      }
+
+      mustFilters.push({
+        bool: {
+          should: [
+            { terms: { caseId: scope.allowedCaseIds } },
+            { term: { allowedUserIds: scope.userId } }
+          ],
+          minimum_should_match: 1
+        }
+      });
+    }
+  }
+
+  // Filter by entity type if requested
+  if (entityType && entityType !== "ALL") {
+    mustFilters.push({ term: { entityType } });
+  }
+
+  // 2. Query Text & kNN Vector Construction
+  const queryEmbedding = query.trim() ? await generateEmbedding(query) : [];
+
+  let esQuery: any;
+
+  if (!query.trim()) {
+    // Empty query -> Match all within authorized scope
+    esQuery = {
+      bool: {
+        must: [{ match_all: {} }],
+        filter: mustFilters
+      }
+    };
+  } else {
+    // Hybrid: BM25 text match + Fuzzy Serial + Wildcard
+    esQuery = {
+      bool: {
+        must: [
+          {
+            multi_match: {
+              query,
+              fields: [
+                "title^3",
+                "title.ngram^2",
+                "content",
+                "summary^2",
+                "serialNumber^4",
+                "caseNumber^3",
+                "evidenceType^2",
+                "tags^2"
+              ],
+              fuzziness: "AUTO"
+            }
+          }
+        ],
+        filter: mustFilters
+      }
+    };
+  }
+
+  const searchRequest: any = {
+    index: SDEMS_SEARCH_INDEX,
+    from,
+    size: limit,
+    query: esQuery,
+    highlight: {
+      fields: {
+        title: {},
+        content: {
+          fragment_size: 160,
+          number_of_fragments: 3,
+          no_match_size: 100
+        },
+        summary: {},
+        serialNumber: {}
+      },
+      pre_tags: ["<mark class='bg-yellow-200 text-yellow-900 rounded px-1'>"],
+      post_tags: ["</mark>"]
+    }
+  };
+
+  // Add kNN semantic vector search if vector exists
+  if (queryEmbedding && queryEmbedding.length > 0) {
+    searchRequest.knn = {
+      field: "embedding",
+      query_vector: queryEmbedding,
+      k: 10,
+      num_candidates: 50,
+      filter: mustFilters
+    };
+  }
+
+  try {
+    const esResponse: any = await esClient.search(searchRequest);
+    const totalHits = typeof esResponse.hits?.total === "number"
+      ? esResponse.hits.total
+      : esResponse.hits?.total?.value || 0;
+
+    const hits: SearchHitItem[] = (esResponse.hits?.hits || []).map((h: any) => {
+      const src = h._source || {};
+      const highlight = h.highlight
+        ? Object.values(h.highlight).flat().join(" ... ")
+        : src.summary || src.content || src.title;
+
+      return {
+        id: src.id || h._id,
+        entityType: src.entityType,
+        title: src.title,
+        content: src.content || "",
+        caseId: src.caseId,
+        caseNumber: src.caseNumber,
+        organizationId: src.organizationId,
+        serialNumber: src.serialNumber,
+        evidenceType: src.evidenceType,
+        documentType: src.documentType,
+        versionNumber: src.versionNumber,
+        sha256Hash: src.sha256Hash,
+        score: h._score || 0,
+        highlightSnippet: highlight,
+        uploadedBy: src.uploadedBy,
+        createdAt: src.createdAt
+      };
+    });
+
+    // 3. Optional Groq RAG / Forensic AI Summary
+    let aiSummary: string | undefined;
+    let aiModel: string | undefined;
+    let aiLatencyMs: number | undefined;
+
+    if (useAiSynthesis && hits.length > 0 && query.trim()) {
+      const retrievalContext: RetrievalContextItem[] = hits.slice(0, 5).map((h) => ({
+        id: h.id,
+        title: h.title,
+        caseNumber: h.caseNumber,
+        entityType: h.entityType,
+        snippet: h.highlightSnippet || h.content || h.title,
+        sha256Hash: h.sha256Hash,
+        versionNumber: h.versionNumber
+      }));
+
+      const synthesis = await generateRetrievalSummary(query, retrievalContext);
+      aiSummary = synthesis.summary;
+      aiModel = synthesis.model;
+      aiLatencyMs = synthesis.latencyMs;
+    }
+
+    return {
+      total: totalHits,
+      hits,
+      aiSummary,
+      aiModel,
+      aiLatencyMs
+    };
+  } catch (err: any) {
+    console.warn("[Elasticsearch] ES search unavailable or index empty, using DB scope fallback:", err.message);
+  }
+
+  // 4. Resilient Fallback: If Elasticsearch has not been indexed yet, query Postgres directly within strict scope
+  try {
+    const caseFilter: any = scope.isSuperAdmin
+      ? {}
+      : scope.isOrgAdmin && scope.organizationId
+        ? { organizationId: scope.organizationId }
+        : { id: { in: scope.allowedCaseIds } };
+
+    const qLower = query.toLowerCase().trim();
+
+    // Fetch permitted cases
+    const permittedCases: Array<{ id: string; caseNumber: string; organizationId: string }> =
+      await prisma.case.findMany({
+        where: caseFilter,
+        select: { id: true, caseNumber: true, organizationId: true }
+      });
+
+    const permittedCaseIds = permittedCases.map((c) => c.id);
+    const caseMap = new Map(permittedCases.map((c) => [c.id, c.caseNumber]));
+
+    const fallbackHits: SearchHitItem[] = [];
+
+    // Search Documents
+    if (entityType === "ALL" || entityType === "DOCUMENT") {
+      const docs = await prisma.document.findMany({
+        where: {
+          caseId: { in: permittedCaseIds },
+          OR: qLower
+            ? [
+                { title: { contains: qLower, mode: "insensitive" } },
+                { description: { contains: qLower, mode: "insensitive" } },
+                { documentType: { contains: qLower, mode: "insensitive" } }
+              ]
+            : undefined
+        },
+        include: {
+          versions: {
+            orderBy: { versionNumber: "desc" },
+            take: 1,
+            include: {
+              uploadedBy: { select: { name: true } }
+            }
+          }
+        },
+        take: limit
+      });
+
+      for (const d of docs) {
+        const v = d.versions[0];
+        fallbackHits.push({
+          id: d.id,
+          entityType: "DOCUMENT",
+          title: d.title,
+          content: d.description || "",
+          caseId: d.caseId,
+          caseNumber: caseMap.get(d.caseId) || "CASE-UNKNOWN",
+          organizationId: scope.organizationId || "",
+          documentType: d.documentType || undefined,
+          versionNumber: v?.versionNumber || 1,
+          sha256Hash: v?.sha256Hash || undefined,
+          score: 1.0,
+          highlightSnippet: d.description || d.title,
+          uploadedBy: v?.uploadedBy?.name || "Officer",
+          createdAt: d.createdAt.toISOString()
+        });
+      }
+    }
+
+    // Search Evidence
+    if (entityType === "ALL" || entityType === "EVIDENCE") {
+      const evidences = await prisma.evidence.findMany({
+        where: {
+          caseId: { in: permittedCaseIds },
+          OR: qLower
+            ? [
+                { title: { contains: qLower, mode: "insensitive" } },
+                { description: { contains: qLower, mode: "insensitive" } },
+                { evidenceNumber: { contains: qLower, mode: "insensitive" } }
+              ]
+            : undefined
+        },
+        include: {
+          documentVersion: {
+            select: {
+              sha256Hash: true
+            }
+          },
+          currentCustodian: {
+            select: {
+              name: true
+            }
+          }
+        },
+        take: limit
+      });
+
+      for (const ev of evidences) {
+        fallbackHits.push({
+          id: ev.id,
+          entityType: "EVIDENCE",
+          title: ev.title,
+          content: ev.description || "",
+          caseId: ev.caseId,
+          caseNumber: caseMap.get(ev.caseId) || "CASE-UNKNOWN",
+          organizationId: scope.organizationId || "",
+          serialNumber: ev.evidenceNumber || undefined,
+          evidenceType: "EXHIBIT",
+          sha256Hash: ev.documentVersion?.sha256Hash || undefined,
+          score: 1.0,
+          highlightSnippet: ev.description || `Evidence ID: ${ev.evidenceNumber}`,
+          uploadedBy: ev.currentCustodian?.name || "Custodian",
+          createdAt: ev.createdAt.toISOString()
+        });
+      }
+    }
+
+    let aiSummary: string | undefined;
+    let aiModel: string | undefined;
+    let aiLatencyMs: number | undefined;
+
+    if (useAiSynthesis && fallbackHits.length > 0 && query.trim()) {
+      const retrievalContext: RetrievalContextItem[] = fallbackHits.slice(0, 5).map((h) => ({
+        id: h.id,
+        title: h.title,
+        caseNumber: h.caseNumber,
+        entityType: h.entityType,
+        snippet: h.highlightSnippet || h.content || h.title,
+        sha256Hash: h.sha256Hash,
+        versionNumber: h.versionNumber
+      }));
+
+      const synthesis = await generateRetrievalSummary(query, retrievalContext);
+      aiSummary = synthesis.summary;
+      aiModel = synthesis.model;
+      aiLatencyMs = synthesis.latencyMs;
+    }
+
+    return {
+      total: fallbackHits.length,
+      hits: fallbackHits,
+      aiSummary,
+      aiModel,
+      aiLatencyMs
+    };
+  } catch (dbErr: any) {
+    console.error("[SearchService] Fallback DB query failed:", dbErr.message);
+    return {
+      total: 0,
+      hits: []
+    };
+  }
+}

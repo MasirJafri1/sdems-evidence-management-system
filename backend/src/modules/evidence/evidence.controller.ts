@@ -18,9 +18,9 @@ function serializeEvidence(evidence: any) {
     ...evidence,
     documentVersion: evidence.documentVersion
       ? {
-          ...evidence.documentVersion,
-          fileSize: evidence.documentVersion.fileSize?.toString()
-        }
+        ...evidence.documentVersion,
+        fileSize: evidence.documentVersion.fileSize?.toString()
+      }
       : undefined
   };
 }
@@ -90,14 +90,6 @@ export async function getEvidence(
       id: evidenceId
     },
     include: {
-      case: {
-        select: {
-          id: true,
-          caseNumber: true,
-          title: true,
-          organization: true
-        }
-      },
       documentVersion: {
         include: {
           blockchainAnchor: true

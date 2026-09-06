@@ -13,7 +13,7 @@ export async function verifyVersion(req: AuthenticatedRequest, res: Response) {
   const versionId = req.params.versionId as string;
   const submittedHash = (req.body?.submittedHash || req.query?.submittedHash) as string | undefined;
 
-  const version = await prisma.documentVersion.findUnique({
+  let version = await prisma.documentVersion.findUnique({
     where: {
       id: versionId
     },
@@ -26,6 +26,26 @@ export async function verifyVersion(req: AuthenticatedRequest, res: Response) {
       blockchainAnchor: true
     }
   });
+
+  // Fallback: If versionId is actually a document ID, resolve to its latest version
+  if (!version) {
+    version = await prisma.documentVersion.findFirst({
+      where: {
+        documentId: versionId
+      },
+      orderBy: {
+        versionNumber: "desc"
+      },
+      include: {
+        document: {
+          include: {
+            case: true
+          }
+        },
+        blockchainAnchor: true
+      }
+    });
+  }
 
   if (!version) {
     res.status(404).json({
@@ -60,20 +80,36 @@ export async function verifyVersion(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  let onChainVerified = true;
+  let onChainVerified = false;
   let chainResult: any = null;
-  try {
-    chainResult = await verifyDocumentVersion(versionId);
-    onChainVerified = chainResult.verified;
-  } catch (err: any) {
-    console.warn("On-chain verification fallback warning:", err.message);
-    onChainVerified = Boolean(version.blockchainAnchor?.contentHash);
+
+  if (version.blockchainAnchor) {
+    try {
+      chainResult = await verifyDocumentVersion(version.id);
+      onChainVerified = Boolean(chainResult?.verified);
+    } catch (err: any) {
+      console.warn("On-chain verification fallback warning:", err.message);
+      onChainVerified = Boolean(version.blockchainAnchor?.contentHash);
+    }
+  } else {
+    // If no anchor record yet, fallback to hash match
+    onChainVerified = true;
   }
 
-  const expectedHash = (version.blockchainAnchor?.contentHash || version.sha256Hash || "").toLowerCase();
-  const effectiveHash = (submittedHash || version.sha256Hash).toLowerCase();
-  const isMatch = expectedHash === effectiveHash;
-  const finalVerified = Boolean(onChainVerified && isMatch);
+  const rawExpected = (version.blockchainAnchor?.contentHash || version.sha256Hash || "").toLowerCase();
+  const rawEffective = (submittedHash || version.sha256Hash).toLowerCase();
+
+  // Normalize: strip 0x prefix so '0xabc...' and 'abc...' match identically
+  const cleanExpected = rawExpected.replace(/^0x/, "");
+  const cleanEffective = rawEffective.replace(/^0x/, "");
+
+  const isMatch = cleanExpected === cleanEffective && cleanExpected.length === 64;
+  // A version is verified valid if local content matches expected hash,
+  // AND either on-chain verifies or anchor was previously confirmed
+  const finalVerified = Boolean(isMatch && (onChainVerified || version.blockchainAnchor?.status === "CONFIRMED"));
+
+  const expectedHash = `0x${cleanExpected}`;
+  const effectiveHash = `0x${cleanEffective}`;
 
   const status: "VALID" | "COMPROMISED" = finalVerified ? "VALID" : "COMPROMISED";
 

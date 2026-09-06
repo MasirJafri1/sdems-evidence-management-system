@@ -87,23 +87,31 @@ export const VerificationForm: React.FC<VerificationFormProps> = ({
         throw new Error('Please select an evidence document or choose a local file to verify.');
       }
 
-      // Re-compute SHA-256 digest client-side
+      // Re-compute SHA-256 digest client-side (hex string without 0x prefix)
       const computedHash = await calculateSha256(arrayBuffer);
 
-      const expectedBlockchainHash =
+      const rawExpected =
         activeVersion?.blockchainAnchor?.contentHash ||
         activeVersion?.sha256Hash ||
-        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+        '';
 
-      const isMatch = computedHash.toLowerCase() === expectedBlockchainHash.toLowerCase();
+      const cleanComputed = computedHash.toLowerCase().replace(/^0x/, '');
+      const cleanExpected = rawExpected.toLowerCase().replace(/^0x/, '');
 
-      // Log verification event into immutable cryptographic audit ledger
+      let isMatch = cleanComputed === cleanExpected && cleanComputed.length === 64;
+      let serverResult: any = null;
+
+      // Log verification event into immutable cryptographic audit ledger & get authoritative on-chain verification
       if (activeVersion?.id) {
         try {
-          await apiClient.post(`/document-versions/${activeVersion.id}/verify`, {
-            submittedHash: computedHash,
+          const verifyRes = await apiClient.post(`/document-versions/${activeVersion.id}/verify`, {
+            submittedHash: `0x${cleanComputed}`,
             fileName: selectedFile?.name || activeVersion.originalFileName,
           });
+          serverResult = verifyRes.data;
+          if (typeof serverResult?.verified === 'boolean') {
+            isMatch = serverResult.verified;
+          }
         } catch (auditErr) {
           console.warn('Could not record verification audit event:', auditErr);
         }
@@ -112,9 +120,9 @@ export const VerificationForm: React.FC<VerificationFormProps> = ({
       onVerify({
         evidenceId: targetDoc ? targetDoc.id : 'CUSTOM-UPLOAD',
         documentTitle: targetDoc ? targetDoc.title : selectedFile?.name || 'Local File',
-        anchorId: activeVersion?.blockchainAnchor?.anchorId || 'ANCHOR-0x98124A',
-        submittedHash: computedHash,
-        blockchainHash: expectedBlockchainHash,
+        anchorId: serverResult?.anchorId || activeVersion?.blockchainAnchor?.anchorId || 'ANCHOR-0x98124A',
+        submittedHash: `0x${cleanComputed}`,
+        blockchainHash: `0x${cleanExpected || cleanComputed}`,
         isMatch,
         blockNumber: activeVersion?.blockchainAnchor?.blockNumber || '3120491',
         anchoredAt: activeVersion?.uploadedAt || new Date().toISOString(),

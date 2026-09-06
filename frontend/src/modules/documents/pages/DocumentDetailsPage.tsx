@@ -168,12 +168,12 @@ export const DocumentDetailsPage: React.FC = () => {
           console.warn(`Could not stream v${vNum} binary for recalculation:`, dlErr);
         }
 
-        const versionId = v.id || doc.id;
+        const targetVersionId = v.id || doc.id;
         const submittedHash = calculatedHash || v.sha256Hash || doc.sha256Hash;
 
         try {
           const verifyRes = await apiClient.post(
-            `/document-versions/${versionId}/verify`,
+            `/document-versions/${targetVersionId}/verify`,
             { submittedHash }
           );
           const data = verifyRes.data;
@@ -181,7 +181,7 @@ export const DocumentDetailsPage: React.FC = () => {
 
           details.push({
             versionNumber: vNum,
-            versionId,
+            versionId: targetVersionId,
             verified: isOk,
             status: isOk ? 'VALID' : 'COMPROMISED',
             localHash: data.localHash || submittedHash,
@@ -193,7 +193,7 @@ export const DocumentDetailsPage: React.FC = () => {
         } catch (vErr: any) {
           details.push({
             versionNumber: vNum,
-            versionId,
+            versionId: targetVersionId,
             verified: false,
             status: 'COMPROMISED',
             localHash: submittedHash,

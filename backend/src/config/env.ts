@@ -23,7 +23,14 @@ const envSchema = z.object({
   BLOCKCHAIN_CONTRACT_ADDRESS: z
     .string()
     .regex(/^0x[a-fA-F0-9]{40}$/)
-    .default("0x5FbDB2315678afecb367f032d93F642f64180aa3")
+    .default("0x5FbDB2315678afecb367f032d93F642f64180aa3"),
+  ELASTICSEARCH_URL: z.string().url().default("http://localhost:9200"),
+  OPENROUTER_API_KEY: z.string().optional().default(""),
+  OPENROUTER_EMBEDDING_MODEL: z
+    .string()
+    .default("sentence-transformers/all-minilm-l6-v2"),
+  GROQ_API_KEY: z.string().optional().default(""),
+  GROQ_MODEL: z.string().default("llama-3.3-70b-versatile")
 });
 
 const parsed = envSchema.safeParse(process.env);

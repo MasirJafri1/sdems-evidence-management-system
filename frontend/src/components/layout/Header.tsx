@@ -10,6 +10,18 @@ export const Header: React.FC = () => {
   const { user } = useAppSelector((state) => state.auth);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  // Global Ctrl+K / Cmd+K keyboard listener
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <header className="h-14 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
       <div className="flex items-center gap-4 flex-1 max-w-xl">
@@ -18,9 +30,18 @@ export const Header: React.FC = () => {
           <input
             type="text"
             readOnly
-            placeholder="Search cases, document hashes, evidence IDs... (Click to search)"
-            className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs text-slate-800 placeholder-slate-400 focus:outline-none cursor-pointer"
+            placeholder="Search cases, OCR documents, serial numbers... (Ctrl + K)"
+            className="w-full pl-9 pr-16 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs text-slate-800 placeholder-slate-400 focus:outline-none cursor-pointer hover:bg-slate-100/80 transition-colors"
           />
+          <div className="absolute right-2.5 top-2 hidden sm:flex items-center gap-0.5 pointer-events-none">
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-bold text-slate-500 bg-white border border-slate-300 rounded shadow-2xs">
+              Ctrl
+            </kbd>
+            <span className="text-[10px] text-slate-400">+</span>
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-bold text-slate-500 bg-white border border-slate-300 rounded shadow-2xs">
+              K
+            </kbd>
+          </div>
         </div>
       </div>
 
