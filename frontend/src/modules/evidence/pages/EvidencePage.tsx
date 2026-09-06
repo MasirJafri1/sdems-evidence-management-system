@@ -10,11 +10,15 @@ export const EvidencePage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
-  const filteredEvidence = evidenceList.filter((e) =>
-    e.title.toLowerCase().includes(search.toLowerCase()) ||
-    e.evidenceNumber.toLowerCase().includes(search.toLowerCase()) ||
-    e.serialNumber.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredEvidence = evidenceList.filter((e) => {
+    const s = search.toLowerCase();
+    return (
+      (e.title || '').toLowerCase().includes(s) ||
+      (e.evidenceNumber || '').toLowerCase().includes(s) ||
+      (e.serialNumber || '').toLowerCase().includes(s) ||
+      (e.caseNumber || '').toLowerCase().includes(s)
+    );
+  });
 
   return (
     <div className="space-y-5">

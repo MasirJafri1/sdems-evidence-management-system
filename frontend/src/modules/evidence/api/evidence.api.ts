@@ -63,13 +63,13 @@ export const createEvidenceApi = async (data: {
   const evidenceNumber = `EVID-2026-${Math.floor(1000 + Math.random() * 9000)}`;
   const description = `Type: ${data.evidenceType} | Serial: ${data.serialNumber} | Location: ${data.storageLocation}`;
   
-  const response = await apiClient.post<EvidenceApiRecord>('/evidence', {
+  const response = await apiClient.post<any>('/evidence', {
     caseId: data.caseId,
     evidenceNumber,
     title: data.title,
     description,
   });
-  return response.data;
+  return response.data?.evidence || response.data;
 };
 
 export const getEvidenceByIdApi = async (evidenceId: string): Promise<any> => {
