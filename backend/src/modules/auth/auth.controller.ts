@@ -54,8 +54,24 @@ export async function login(req: Request, res: Response) {
   const isSuperAdmin = user.email === "superadmin@gov.in";
 
   const membership = await prisma.organizationMembership.findFirst({
-    where: { userId: user.id, status: "ACTIVE" }
+    where: { userId: user.id, status: "ACTIVE" },
+    include: {
+      organization: true,
+      role: true
+    }
   });
+
+  const organization = isSuperAdmin
+    ? (membership?.organization
+        ? { id: membership.organization.id, name: membership.organization.name, code: membership.organization.code }
+        : { id: "global", name: "Government of India (Super Admin)", code: "GOV-SUPER" })
+    : membership?.organization
+    ? {
+        id: membership.organization.id,
+        name: membership.organization.name,
+        code: membership.organization.code
+      }
+    : null;
 
   res.json({
     token,
@@ -64,8 +80,8 @@ export async function login(req: Request, res: Response) {
       name: user.name,
       email: user.email,
       isSuperAdmin,
-      organizationId: isSuperAdmin ? null : (membership?.organizationId || null)
+      organizationId: membership?.organizationId || (isSuperAdmin ? "global" : null),
+      organization
     }
   });
-
 }

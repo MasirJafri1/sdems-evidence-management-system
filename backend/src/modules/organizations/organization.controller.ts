@@ -181,20 +181,25 @@ export async function createRole(req: AuthenticatedRequest, res: Response) {
   const organizationId = req.params.organizationId as string;
   const userId = req.userId!;
 
-  const membership = await getMembership(userId, organizationId);
+  const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
 
-  if (!membership) {
-    res.status(403).json({
-      message: "You are not a member of this organization"
-    });
-    return;
-  }
+  if (!isSuperAdmin) {
+    const membership = await getMembership(userId, organizationId);
 
-  if (!hasPermission(membership, "ROLE_CREATE")) {
-    res.status(403).json({
-      message: "Missing ROLE_CREATE permission"
-    });
-    return;
+    if (!membership) {
+      res.status(403).json({
+        message: "You are not a member of this organization"
+      });
+      return;
+    }
+
+    if (!hasPermission(membership, "ROLE_CREATE")) {
+      res.status(403).json({
+        message: "Missing ROLE_CREATE permission"
+      });
+      return;
+    }
   }
 
   const parsed = createRoleSchema.safeParse(req.body);
@@ -447,37 +452,48 @@ export async function getOrganizationUsers(
 
   const isSuperAdmin = reqUser?.email === "superadmin@gov.in";
 
-  // Global Super Admin can view all users across all organizations
-  if (isSuperAdmin) {
-    const allUsers = await prisma.organizationMembership.findMany({
-      where: {
-        status: "ACTIVE"
-      },
+  // 1. If Super Admin, or query for "all":
+  if (isSuperAdmin || organizationId === "all") {
+    const where: any = {
+      isActive: true
+    };
+
+    if (organizationId && organizationId !== "all") {
+      where.memberships = {
+        some: {
+          organizationId,
+          status: "ACTIVE"
+        }
+      };
+    }
+
+    const users = await prisma.user.findMany({
+      where,
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            isActive: true
+        memberships: {
+          where: { status: "ACTIVE" },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            },
+            role: true
           }
-        },
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            code: true
-          }
-        },
-        role: true
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
       }
     });
 
-    res.json(allUsers);
+    res.json(users);
     return;
   }
 
-  // Org Admin / Member can ONLY view users of their enrolled organization
+  // 2. Specific organization requested by non-superadmin
   const membership = await getMembership(userId, organizationId);
 
   if (!membership) {
@@ -487,35 +503,36 @@ export async function getOrganizationUsers(
     return;
   }
 
-  if (!hasPermission(membership, "USER_READ")) {
-    res.status(403).json({
-      message: "Missing USER_READ permission"
-    });
-    return;
-  }
-
-  const users = await prisma.organizationMembership.findMany({
+  const users = await prisma.user.findMany({
     where: {
-      organizationId,
-      status: "ACTIVE"
+      isActive: true,
+      memberships: {
+        some: {
+          organizationId,
+          status: "ACTIVE"
+        }
+      }
     },
     include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          isActive: true
+      memberships: {
+        where: {
+          organizationId,
+          status: "ACTIVE"
+        },
+        include: {
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              code: true
+            }
+          },
+          role: true
         }
-      },
-      organization: {
-        select: {
-          id: true,
-          name: true,
-          code: true
-        }
-      },
-      role: true
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
     }
   });
 
@@ -615,28 +632,10 @@ export async function getAllRegisteredOfficers(req: AuthenticatedRequest, res: R
 
 export async function getAllOrganizations(req: AuthenticatedRequest, res: Response) {
   try {
-    const userId = req.userId;
-    let isSuperAdmin = false;
-
-    if (userId) {
-      const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-      isSuperAdmin = currentUser?.email === "superadmin@gov.in";
-    }
-
-    const whereClause: any = {};
-    if (!isSuperAdmin && userId) {
-      whereClause.memberships = {
-        some: {
-          userId,
-          status: "ACTIVE"
-        }
-      };
-    }
-
     const orgs = await prisma.organization.findMany({
-      where: whereClause,
       include: {
         memberships: {
+          where: { status: "ACTIVE" },
           include: {
             user: {
               select: {

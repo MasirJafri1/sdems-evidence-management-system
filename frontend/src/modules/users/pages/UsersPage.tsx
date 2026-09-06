@@ -95,10 +95,7 @@ export const UsersPage: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const activeOrgId =
-        selectedOrgId !== 'ALL'
-          ? selectedOrgId
-          : (user?.organizationId || organizations[0]?.id || 'all');
+      const activeOrgId = selectedOrgId !== 'ALL' ? selectedOrgId : 'all';
 
       const data = await getOrganizationUsersApi(activeOrgId);
 
@@ -106,8 +103,14 @@ export const UsersPage: React.FC = () => {
         const mapped: MockUser[] = data.map((u: any) => {
           const userObj = u.user || u;
           const firstMembership = u.memberships && u.memberships.length > 0 ? u.memberships[0] : null;
-          const orgName = u.organization?.name || firstMembership?.organization?.name || (isSuperAdmin ? 'System Wide' : 'Enrolled Organization');
-          const roleName = u.role?.name || firstMembership?.role?.name || (userObj.email === 'superadmin@gov.in' ? 'Global Super Admin' : 'Organization Admin');
+          const orgName =
+            u.organization?.name ||
+            firstMembership?.organization?.name ||
+            (userObj.email === 'superadmin@gov.in' ? 'Government of India (Super Admin)' : 'Unassigned / Standalone');
+          const roleName =
+            u.role?.name ||
+            firstMembership?.role?.name ||
+            (userObj.email === 'superadmin@gov.in' ? 'Global Super Admin' : 'Registered Officer');
 
           return {
             id: userObj.id || u.id,

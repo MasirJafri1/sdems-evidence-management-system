@@ -41,20 +41,25 @@ export async function createCase(req: AuthenticatedRequest, res: Response) {
   const userId = req.userId!;
   const organizationId = req.params.organizationId as string;
 
-  const membership = await getOrganizationMembership(userId, organizationId);
+  const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
 
-  if (!membership) {
-    res.status(403).json({
-      message: "You are not a member of this organization"
-    });
-    return;
-  }
+  if (!isSuperAdmin) {
+    const membership = await getOrganizationMembership(userId, organizationId);
 
-  if (!hasPermission(membership, "CASE_CREATE")) {
-    res.status(403).json({
-      message: "Missing CASE_CREATE permission"
-    });
-    return;
+    if (!membership) {
+      res.status(403).json({
+        message: "You are not a member of this organization"
+      });
+      return;
+    }
+
+    if (!hasPermission(membership, "CASE_CREATE")) {
+      res.status(403).json({
+        message: "Missing CASE_CREATE permission"
+      });
+      return;
+    }
   }
 
   const parsed = createCaseSchema.safeParse(req.body);
@@ -328,27 +333,32 @@ export async function addParticipant(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  const currentParticipant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId,
-        userId: currentUserId
+  const currentUser = await prisma.user.findUnique({ where: { id: currentUserId } });
+  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+
+  if (!isSuperAdmin) {
+    const currentParticipant = await prisma.caseParticipant.findUnique({
+      where: {
+        caseId_userId: {
+          caseId,
+          userId: currentUserId
+        }
       }
+    });
+
+    if (!currentParticipant || currentParticipant.status !== "ACTIVE") {
+      res.status(403).json({
+        message: "You are not a participant of this case"
+      });
+      return;
     }
-  });
 
-  if (!currentParticipant || currentParticipant.status !== "ACTIVE") {
-    res.status(403).json({
-      message: "You are not a participant of this case"
-    });
-    return;
-  }
-
-  if (!currentParticipant.isCaseAdmin) {
-    res.status(403).json({
-      message: "Only case administrators can manage participants"
-    });
-    return;
+    if (!currentParticipant.isCaseAdmin) {
+      res.status(403).json({
+        message: "Only case administrators can manage participants"
+      });
+      return;
+    }
   }
 
   /*

@@ -35,10 +35,23 @@ export const Header: React.FC = () => {
         {user && (
           <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
             <div className="text-right hidden sm:block">
-              <div className="text-xs font-bold text-slate-900">{user.name}</div>
-              <div className="text-[11px] text-slate-500 flex items-center justify-end gap-1">
-                <Building className="w-3 h-3 text-slate-400" />
-                {user.email}
+              <div className="text-xs font-bold text-slate-900 flex items-center justify-end gap-1.5">
+                <span>{user.name}</span>
+                {user.isSuperAdmin && (
+                  <span className="px-1.5 py-0.2 text-[9px] bg-red-100 text-red-800 font-bold rounded border border-red-200 uppercase tracking-wide">
+                    SUPER ADMIN
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] text-slate-500 flex items-center justify-end gap-1 mt-0.5">
+                <Building className="w-3 h-3 text-slate-400 shrink-0" />
+                <span className="font-semibold text-slate-700">
+                  {user.isSuperAdmin
+                    ? 'Cross-Agency National Governance'
+                    : user.organization?.name || 'Central Bureau of Investigation (CBI)'}
+                </span>
+                <span className="text-slate-300">|</span>
+                <span className="font-mono text-[10px] text-slate-400">{user.email}</span>
               </div>
             </div>
 
