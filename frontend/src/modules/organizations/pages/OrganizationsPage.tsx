@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppSelector } from '../../../store';
 import { Card } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
 import { Building, ShieldCheck, Plus, Users, CheckCircle, AlertCircle, UserCheck, Search } from 'lucide-react';
-import { createOrganizationApi, getOrganizationsApi, lookupUserApi } from '../api/organization.api';
+import {
+  createOrganizationApi,
+  getOrganizationsApi,
+  lookupUserApi,
+  getSuperAdminAllDataApi,
+} from '../api/organization.api';
 
 interface OrgMember {
   id: string;
@@ -28,6 +34,9 @@ interface Organization {
 
 export const OrganizationsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAppSelector((state) => state.auth);
+  const isSuperAdmin = user?.isSuperAdmin || user?.email?.trim().toLowerCase() === 'superadmin@gov.in';
+
   const [isAddOrgOpen, setIsAddOrgOpen] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,6 +54,7 @@ export const OrganizationsPage: React.FC = () => {
   const [searchedAdmin, setSearchedAdmin] = useState<any | null>(null);
   const [isSearchingAdmin, setIsSearchingAdmin] = useState(false);
   const [adminLookupError, setAdminLookupError] = useState<string | null>(null);
+  const [allRegisteredUsers, setAllRegisteredUsers] = useState<any[]>([]);
   
   // New Admin details
   const [adminName, setAdminName] = useState('');
@@ -55,6 +65,37 @@ export const OrganizationsPage: React.FC = () => {
 
   const loadData = async () => {
     try {
+      if (isSuperAdmin) {
+        const superData = await getSuperAdminAllDataApi();
+        if (superData && superData.success) {
+          if (Array.isArray(superData.users)) {
+            setAllRegisteredUsers(superData.users);
+          }
+          if (Array.isArray(superData.organizations)) {
+            const mapped: Organization[] = superData.organizations.map((o: any) => ({
+              id: o.id,
+              name: o.name,
+              code: o.code,
+              casesCount: o._count?.cases || 0,
+              securityLevel: 'LEVEL 4 ZERO-TRUST',
+              members: (o.memberships || []).map((m: any) => ({
+                id: m.user?.id || m.id,
+                name: m.user?.name || 'Officer',
+                badgeNumber: `${o.code}-ADMIN-01`,
+                role: m.role?.name || 'Organization Admin',
+                department: 'Executive Governance',
+                status: m.status || 'ACTIVE'
+              }))
+            }));
+            setOrganizations(mapped);
+            if (mapped.length > 0 && !selectedOrgId) {
+              setSelectedOrgId(mapped[0].id);
+            }
+            return;
+          }
+        }
+      }
+
       const orgs = await getOrganizationsApi();
 
       if (Array.isArray(orgs)) {
@@ -85,7 +126,7 @@ export const OrganizationsPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [isSuperAdmin]);
 
   const handleAdminLookup = async () => {
     if (!adminLookupQuery.trim()) {
@@ -426,9 +467,44 @@ export const OrganizationsPage: React.FC = () => {
             {/* Mode A: Select Existing Registered Officer */}
             {adminType === 'EXISTING' ? (
               <div className="space-y-3 pt-2">
-                <label className="block text-xs font-semibold text-slate-700 uppercase">
-                  Search Registered Officer by Email or User ID *
-                </label>
+                {allRegisteredUsers.length > 0 && (
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-indigo-600" />
+                      Select from System Registered Officers ({allRegisteredUsers.length})
+                    </label>
+                    <select
+                      value={existingUserId}
+                      onChange={(e) => {
+                        const uid = e.target.value;
+                        setExistingUserId(uid);
+                        const target = allRegisteredUsers.find((u) => u.id === uid);
+                        if (target) {
+                          setSearchedAdmin(target);
+                          setAdminLookupQuery(target.email);
+                          setAdminLookupError(null);
+                        } else {
+                          setSearchedAdmin(null);
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">-- Choose Registered Officer to assign as Org Admin --</option>
+                      {allRegisteredUsers.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.email}) — {u.isUnassigned ? '⚡ Standalone / Unassigned' : u.organizationNames || 'Enrolled'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 my-1">
+                  <div className="flex-1 border-t border-slate-200"></div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Or Search by Email / ID</span>
+                  <div className="flex-1 border-t border-slate-200"></div>
+                </div>
+
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -459,7 +535,7 @@ export const OrganizationsPage: React.FC = () => {
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded space-y-1 text-xs text-emerald-950 font-medium">
                     <div className="font-bold flex items-center gap-1.5 text-emerald-900">
                       <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                      Officer Verified: {searchedAdmin.name} ({searchedAdmin.email})
+                      Admin Officer Selected: {searchedAdmin.name} ({searchedAdmin.email})
                     </div>
                     <div className="text-[11px] text-emerald-700 font-mono">
                       User ID: {searchedAdmin.id}

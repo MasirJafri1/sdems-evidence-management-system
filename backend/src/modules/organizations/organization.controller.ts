@@ -9,6 +9,12 @@ import {
   createUserSchema
 } from "./organization.schema";
 
+export function isUserSuperAdmin(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return clean === "superadmin@gov.in" || clean.startsWith("superadmin@");
+}
+
 async function getMembership(userId: string, organizationId: string) {
   return prisma.organizationMembership.findUnique({
     where: {
@@ -252,6 +258,56 @@ export async function createRole(req: AuthenticatedRequest, res: Response) {
   res.status(201).json(role);
 }
 
+export async function createStandaloneUser(req: AuthenticatedRequest, res: Response) {
+  const currentUserId = req.userId!;
+  const currentUser = await prisma.user.findUnique({
+    where: { id: currentUserId }
+  });
+
+  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+
+  if (!isSuperAdmin) {
+    res.status(403).json({
+      message: "Access denied. Only Super Admin can provision standalone unassigned users."
+    });
+    return;
+  }
+
+  const { name, email, password } = req.body;
+
+  if (!name || !email || !password) {
+    res.status(400).json({
+      message: "Name, email, and password are required to create a standalone user."
+    });
+    return;
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    res.status(409).json({ message: "A user with this email already exists." });
+    return;
+  }
+
+  const passwordHash = await hashPassword(password);
+  const newUser = await prisma.user.create({
+    data: {
+      name,
+      email,
+      passwordHash,
+      isActive: true
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isActive: true,
+      createdAt: true
+    }
+  });
+
+  res.status(201).json(newUser);
+}
+
 export async function createUser(req: AuthenticatedRequest, res: Response) {
   const organizationId = req.params.organizationId as string;
   const currentUserId = req.userId!;
@@ -261,6 +317,51 @@ export async function createUser(req: AuthenticatedRequest, res: Response) {
   });
 
   const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+
+  // Support standalone unassigned user provisioning by Super Admin
+  if (organizationId === "none" || organizationId === "unassigned" || organizationId === "standalone") {
+    if (!isSuperAdmin) {
+      res.status(403).json({
+        message: "Access denied. Only Super Admin can provision standalone unassigned users."
+      });
+      return;
+    }
+
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      res.status(400).json({
+        message: "Name, email, and password are required to create a standalone user."
+      });
+      return;
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      res.status(409).json({ message: "A user with this email already exists." });
+      return;
+    }
+
+    const passwordHash = await hashPassword(password);
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+        isActive: true
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isActive: true,
+        createdAt: true
+      }
+    });
+
+    res.status(201).json(newUser);
+    return;
+  }
 
   if (!isSuperAdmin) {
     const membership = await getMembership(currentUserId, organizationId);
@@ -450,15 +551,19 @@ export async function getOrganizationUsers(
     where: { id: userId }
   });
 
-  const isSuperAdmin = reqUser?.email === "superadmin@gov.in";
+  const isSuperAdmin = isUserSuperAdmin(reqUser?.email);
 
-  // 1. If Super Admin, or query for "all":
-  if (isSuperAdmin || organizationId === "all") {
-    const where: any = {
-      isActive: true
-    };
+  // 1. If Super Admin:
+  if (isSuperAdmin) {
+    const where: any = {};
 
-    if (organizationId && organizationId !== "all") {
+    if (organizationId === "unassigned") {
+      where.memberships = {
+        none: {
+          status: "ACTIVE"
+        }
+      };
+    } else if (organizationId && organizationId !== "all") {
       where.memberships = {
         some: {
           organizationId,
@@ -493,30 +598,110 @@ export async function getOrganizationUsers(
     return;
   }
 
-  // 2. Specific organization requested by non-superadmin
-  const membership = await getMembership(userId, organizationId);
+  // 2. Non-superadmin visibility: Strictly scoped to user's enrolled organizations and participant cases
+  const userMemberships = await prisma.organizationMembership.findMany({
+    where: {
+      userId,
+      status: "ACTIVE"
+    },
+    select: {
+      organizationId: true
+    }
+  });
+  const myOrgIds = userMemberships.map((m) => m.organizationId);
 
-  if (!membership) {
-    res.status(403).json({
-      message: "You are not a member of this organization"
-    });
+  const myCaseParticipants = await prisma.caseParticipant.findMany({
+    where: { userId, status: "ACTIVE" },
+    select: { caseId: true }
+  });
+  const myCaseIds = myCaseParticipants.map((cp) => cp.caseId);
+
+  // If unassigned user with no organizations and no participant cases:
+  // Strictly see NO users
+  if (myOrgIds.length === 0 && myCaseIds.length === 0) {
+    res.json([]);
     return;
+  }
+
+  // If a specific organization was requested:
+  if (organizationId && organizationId !== "all") {
+    if (!myOrgIds.includes(organizationId)) {
+      res.status(403).json({
+        message: "Access denied. You are not a member of this organization."
+      });
+      return;
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        memberships: {
+          some: {
+            organizationId,
+            status: "ACTIVE"
+          }
+        }
+      },
+      include: {
+        memberships: {
+          where: {
+            organizationId,
+            status: "ACTIVE"
+          },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            },
+            role: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    res.json(users);
+    return;
+  }
+
+  // When organizationId === "all" for non-superadmin:
+  // Return ONLY users who belong to the same organizations OR share the same active cases
+  const scopedOrConditions: any[] = [];
+  if (myOrgIds.length > 0) {
+    scopedOrConditions.push({
+      memberships: {
+        some: {
+          organizationId: { in: myOrgIds },
+          status: "ACTIVE"
+        }
+      }
+    });
+  }
+  if (myCaseIds.length > 0) {
+    scopedOrConditions.push({
+      caseParticipants: {
+        some: {
+          caseId: { in: myCaseIds },
+          status: "ACTIVE"
+        }
+      }
+    });
   }
 
   const users = await prisma.user.findMany({
     where: {
       isActive: true,
-      memberships: {
-        some: {
-          organizationId,
-          status: "ACTIVE"
-        }
-      }
+      OR: scopedOrConditions
     },
     include: {
       memberships: {
         where: {
-          organizationId,
+          organizationId: { in: myOrgIds },
           status: "ACTIVE"
         },
         include: {
@@ -632,7 +817,36 @@ export async function getAllRegisteredOfficers(req: AuthenticatedRequest, res: R
 
 export async function getAllOrganizations(req: AuthenticatedRequest, res: Response) {
   try {
+    const userId = req.userId!;
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    const isSuperAdmin = isUserSuperAdmin(currentUser?.email);
+
+    let whereClause: any = {};
+
+    if (!isSuperAdmin) {
+      const participantCases = await prisma.caseParticipant.findMany({
+        where: { userId, status: "ACTIVE" },
+        select: { case: { select: { organizationId: true } } }
+      });
+      const participantOrgIds = participantCases.map((pc) => pc.case.organizationId);
+
+      whereClause = {
+        OR: [
+          {
+            memberships: {
+              some: {
+                userId,
+                status: "ACTIVE"
+              }
+            }
+          },
+          ...(participantOrgIds.length > 0 ? [{ id: { in: participantOrgIds } }] : [])
+        ]
+      };
+    }
+
     const orgs = await prisma.organization.findMany({
+      where: whereClause,
       include: {
         memberships: {
           where: { status: "ACTIVE" },
@@ -667,6 +881,212 @@ export async function getAllOrganizations(req: AuthenticatedRequest, res: Respon
     res.json(orgs);
   } catch (error: any) {
     res.status(500).json({ message: "Failed to retrieve organizations" });
+  }
+}
+
+export async function getSuperAdminAllData(req: AuthenticatedRequest, res: Response) {
+  try {
+    const userId = req.userId!;
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    const isSuperAdmin = isUserSuperAdmin(currentUser?.email);
+
+    if (!isSuperAdmin) {
+      res.status(403).json({
+        message: "Access denied. Super Admin authority required."
+      });
+      return;
+    }
+
+    const [users, organizations] = await Promise.all([
+      prisma.user.findMany({
+        include: {
+          memberships: {
+            where: { status: "ACTIVE" },
+            include: {
+              organization: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true
+                }
+              },
+              role: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: {
+          createdAt: "desc"
+        }
+      }),
+      prisma.organization.findMany({
+        include: {
+          memberships: {
+            where: { status: "ACTIVE" },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  isActive: true
+                }
+              },
+              role: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
+            }
+          },
+          _count: {
+            select: {
+              cases: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: "desc"
+        }
+      })
+    ]);
+
+    const annotatedUsers = users.map((u) => {
+      const isUnassigned = u.memberships.length === 0;
+      const orgNames = u.memberships.map((m) => m.organization.name).join(", ");
+      const roleNames = u.memberships.map((m) => m.role.name).join(", ");
+
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        isActive: u.isActive,
+        createdAt: u.createdAt,
+        isUnassigned,
+        organizationNames: orgNames || "Unassigned Officer",
+        roleNames: roleNames || (u.email === "superadmin@gov.in" ? "Global Super Admin" : "Standalone User"),
+        memberships: u.memberships
+      };
+    });
+
+    res.json({
+      success: true,
+      totalUsers: users.length,
+      totalOrganizations: organizations.length,
+      users: annotatedUsers,
+      organizations
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to retrieve superadmin directory", error: error.message });
+  }
+}
+
+export async function getSuperAdminUsers(req: AuthenticatedRequest, res: Response) {
+  try {
+    const userId = req.userId!;
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    const isSuperAdmin = isUserSuperAdmin(currentUser?.email);
+
+    if (!isSuperAdmin) {
+      res.status(403).json({ message: "Access denied. Super Admin authority required." });
+      return;
+    }
+
+    const users = await prisma.user.findMany({
+      include: {
+        memberships: {
+          where: { status: "ACTIVE" },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            },
+            role: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    const annotatedUsers = users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      isActive: u.isActive,
+      createdAt: u.createdAt,
+      isUnassigned: u.memberships.length === 0,
+      organizationNames: u.memberships.map((m) => m.organization.name).join(", ") || "Unassigned Officer",
+      roleNames: u.memberships.map((m) => m.role.name).join(", ") || (u.email === "superadmin@gov.in" ? "Global Super Admin" : "Standalone User"),
+      memberships: u.memberships
+    }));
+
+    res.json(annotatedUsers);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to retrieve users", error: error.message });
+  }
+}
+
+export async function getSuperAdminOrganizations(req: AuthenticatedRequest, res: Response) {
+  try {
+    const userId = req.userId!;
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    const isSuperAdmin = isUserSuperAdmin(currentUser?.email);
+
+    if (!isSuperAdmin) {
+      res.status(403).json({ message: "Access denied. Super Admin authority required." });
+      return;
+    }
+
+    const organizations = await prisma.organization.findMany({
+      include: {
+        memberships: {
+          where: { status: "ACTIVE" },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                isActive: true
+              }
+            },
+            role: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        _count: {
+          select: {
+            cases: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    res.json(organizations);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to retrieve organizations", error: error.message });
   }
 }
 

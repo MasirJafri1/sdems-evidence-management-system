@@ -4,7 +4,9 @@ import {
   getOrganizationUsersApi,
   getOrganizationsApi,
   createUserApi,
+  createStandaloneUserApi,
   lookupUserApi,
+  getSuperAdminAllDataApi,
 } from '../../organizations/api/organization.api';
 
 import { PermissionMatrix } from '../components/PermissionMatrix';
@@ -51,7 +53,10 @@ const DEFAULT_OFFICER_PERMS = [
 
 export const UsersPage: React.FC = () => {
   const { user } = useAppSelector((state) => state.auth);
+  const isSuperAdmin = user?.isSuperAdmin || user?.email?.trim().toLowerCase() === 'superadmin@gov.in';
+
   const [users, setUsers] = useState<MockUser[]>([]);
+  const [allRegisteredOfficers, setAllRegisteredOfficers] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users');
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,8 +83,6 @@ export const UsersPage: React.FC = () => {
   const [selectedOrgId, setSelectedOrgId] = useState<string>('ALL');
   const [enrollOrgId, setEnrollOrgId] = useState<string>(user?.organizationId || '');
 
-  const isSuperAdmin = user?.isSuperAdmin || user?.email === 'superadmin@gov.in';
-
   useEffect(() => {
     getOrganizationsApi()
       .then((orgs) => {
@@ -95,8 +98,54 @@ export const UsersPage: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const activeOrgId = selectedOrgId !== 'ALL' ? selectedOrgId : 'all';
+      if (isSuperAdmin) {
+        try {
+          const superData = await getSuperAdminAllDataApi();
+          if (superData && superData.success && Array.isArray(superData.users)) {
+            if (Array.isArray(superData.organizations)) {
+              setOrganizations(superData.organizations.map((o: any) => ({ id: o.id, name: o.name, code: o.code })));
+            }
+            setAllRegisteredOfficers(superData.users);
 
+            let rawList = superData.users;
+            if (selectedOrgId !== 'ALL') {
+              rawList = rawList.filter((u: any) =>
+                u.memberships?.some((m: any) => m.organization?.id === selectedOrgId || m.organizationId === selectedOrgId)
+              );
+            }
+
+            const mapped: MockUser[] = rawList.map((u: any) => {
+              const firstMembership = u.memberships && u.memberships.length > 0 ? u.memberships[0] : null;
+              const orgName =
+                u.organizationNames ||
+                firstMembership?.organization?.name ||
+                (u.email === 'superadmin@gov.in' ? 'Government of India (Super Admin)' : '⚡ Unassigned / Standalone');
+              const roleName =
+                u.roleNames ||
+                firstMembership?.role?.name ||
+                (u.email === 'superadmin@gov.in' ? 'Global Super Admin' : 'Registered Officer');
+
+              return {
+                id: u.id,
+                name: u.name,
+                email: u.email,
+                designation: roleName,
+                role: roleName,
+                organization: orgName,
+                status: (u.isActive ?? true) ? 'ACTIVE' : 'SUSPENDED',
+                permissionsCount: 18,
+                lastLogin: u.createdAt || new Date().toISOString(),
+              };
+            });
+            setUsers(mapped);
+            return;
+          }
+        } catch (superErr) {
+          console.warn('Superadmin API fallback:', superErr);
+        }
+      }
+
+      const activeOrgId = selectedOrgId !== 'ALL' ? selectedOrgId : 'all';
       const data = await getOrganizationUsersApi(activeOrgId);
 
       if (Array.isArray(data) && data.length > 0) {
@@ -106,7 +155,7 @@ export const UsersPage: React.FC = () => {
           const orgName =
             u.organization?.name ||
             firstMembership?.organization?.name ||
-            (userObj.email === 'superadmin@gov.in' ? 'Government of India (Super Admin)' : 'Unassigned / Standalone');
+            (userObj.email === 'superadmin@gov.in' ? 'Government of India (Super Admin)' : '⚡ Unassigned / Standalone');
           const roleName =
             u.role?.name ||
             firstMembership?.role?.name ||
@@ -193,6 +242,36 @@ export const UsersPage: React.FC = () => {
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    // Standalone Unassigned User Provisioning (Super Admin Only)
+    if (enrollOrgId === 'NONE') {
+      if (!name || !email || !password) {
+        setErrorMessage('Officer Name, Official Email, and Password are required.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      try {
+        await createStandaloneUserApi({
+          name,
+          email,
+          password,
+        });
+
+        setSuccessMessage(`✅ Standalone unassigned officer "${name}" (${email}) provisioned successfully! They have no organization affiliation and zero initial visibility until assigned.`);
+        fetchUsers();
+        setName('');
+        setEmail('');
+        setPassword('Password123!');
+        setIsAddUserOpen(false);
+      } catch (err: any) {
+        const msg = err.response?.data?.message || 'Failed to provision standalone user.';
+        setErrorMessage(`Error: ${msg}`);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     const orgToEnroll = enrollOrgId || (selectedOrgId !== 'ALL' ? selectedOrgId : null) || user?.organizationId || organizations[0]?.id;
     if (!orgToEnroll) {
       setErrorMessage('Please enroll or select an organization before creating an officer account.');
@@ -276,13 +355,15 @@ export const UsersPage: React.FC = () => {
             </select>
           )}
 
-          <Button
-            variant="primary"
-            onClick={() => setIsAddUserOpen(true)}
-            leftIcon={<UserPlus className="w-4 h-4" />}
-          >
-            Add Officer / User
-          </Button>
+          {(isSuperAdmin || (user?.organizationId && organizations.length > 0)) && (
+            <Button
+              variant="primary"
+              onClick={() => setIsAddUserOpen(true)}
+              leftIcon={<UserPlus className="w-4 h-4" />}
+            >
+              Add Officer / User
+            </Button>
+          )}
 
           <div className="flex items-center gap-1 bg-slate-200 p-1 rounded">
             <button
@@ -336,8 +417,22 @@ export const UsersPage: React.FC = () => {
             <tbody className="divide-y divide-slate-200 font-medium bg-white">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500 italic">
-                    No users or officers registered yet in this roster. Click "Add Officer / User" above to enroll personnel.
+                  <td colSpan={5} className="p-12 text-center text-slate-500">
+                    <div className="max-w-md mx-auto space-y-2">
+                      <div className="w-10 h-10 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div className="font-bold text-slate-800 text-sm">
+                        {isSuperAdmin
+                          ? 'No personnel found matching the selected agency filter.'
+                          : 'Zero Personnel In Visibility Scope'}
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        {isSuperAdmin
+                          ? 'Click "Add Officer / User" above to enroll personnel into the agency roster.'
+                          : 'You are currently not assigned to any law enforcement agency or active case. By strict multi-tenancy rules, your visibility is restricted to zero organizations and zero personnel until an administrator assigns you.'}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -384,116 +479,45 @@ export const UsersPage: React.FC = () => {
       <Modal
         isOpen={isAddUserOpen}
         onClose={() => setIsAddUserOpen(false)}
-        title="Add Officer / Enroll Global User into Organization"
+        title={enrollOrgId === 'NONE' ? 'Provision Standalone Officer (No Agency Affiliation)' : 'Add Officer / Enroll Global User into Organization'}
         maxWidth="lg"
       >
         <form onSubmit={handleAddUser} className="space-y-4 text-xs">
           {/* Agency Assignment */}
-          {organizations.length > 0 && (
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                <Building className="w-3.5 h-3.5 text-slate-600" />
-                Assign to Law Enforcement Agency / Department *
-              </label>
-              <select
-                value={enrollOrgId}
-                onChange={(e) => setEnrollOrgId(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800"
-                required
-              >
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name} ({org.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Enroll Mode Toggle */}
-          <div className="flex rounded border border-slate-300 p-1 bg-slate-100 gap-1">
-            <button
-              type="button"
-              onClick={() => setEnrollMode('EXISTING')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${
-                enrollMode === 'EXISTING' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'
-              }`}
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+              <Building className="w-3.5 h-3.5 text-slate-600" />
+              Assign to Law Enforcement Agency / Department *
+            </label>
+            <select
+              value={enrollOrgId}
+              onChange={(e) => setEnrollOrgId(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800"
+              required
             >
-              Enroll Existing Global User (Search by Email/ID)
-            </button>
-            <button
-              type="button"
-              onClick={() => setEnrollMode('NEW')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${
-                enrollMode === 'NEW' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'
-              }`}
-            >
-              Provision New User Account
-            </button>
+              {isSuperAdmin && (
+                <option value="NONE">
+                  ⚡ Standalone Officer (No Agency Affiliation)
+                </option>
+              )}
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name} ({org.code})
+                </option>
+              ))}
+            </select>
           </div>
 
-          {enrollMode === 'EXISTING' ? (
+          {enrollOrgId === 'NONE' ? (
             <div className="space-y-3">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded text-blue-900 text-[11px]">
-                <strong>Zero-Trust Officer Lookup:</strong> For privacy & security, global user rosters are invisible. Enter the target officer's exact Email or User ID to lookup and enroll them.
-              </div>
-
-              {/* Direct Search/Lookup Input */}
-              <div className="space-y-2">
-                <label className="block text-xs font-semibold text-slate-700 uppercase">
-                  Search Officer by Email or User ID *
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="e.g. priya.sharma@ed.gov.in or cm123abc..."
-                    value={userLookupQuery}
-                    onChange={(e) => setUserLookupQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleUserLookup();
-                      }
-                    }}
-                    className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800 font-medium"
-                  />
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={handleUserLookup}
-                    isLoading={isSearchingUser}
-                    leftIcon={<Search className="w-3.5 h-3.5" />}
-                  >
-                    Lookup
-                  </Button>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 text-xs font-medium space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                  <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0" />
+                  Zero-Trust Standalone Officer Provisioning
                 </div>
-              </div>
-
-              {/* Lookup Result Box */}
-              {searchedUser && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded space-y-1 text-xs text-emerald-950 font-medium">
-                  <div className="font-bold flex items-center gap-1.5 text-emerald-900">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                    Officer Verified: {searchedUser.name} ({searchedUser.email})
-                  </div>
-                  <div className="text-[11px] text-emerald-700 font-mono">
-                    User ID: {searchedUser.id}
-                  </div>
-                </div>
-              )}
-
-              {lookupError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-900 font-medium flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>{lookupError}</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded text-emerald-900 text-[11px]">
-                <strong>Create New Account:</strong> Create a brand new global user account and assign credentials for immediate login.
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  This user account will be created with <strong>no organization</strong>. Upon logging in, they will have strictly <strong>zero visibility</strong> (no organizations, no cases, and no other users) until assigned as an admin or participant by an authorized officer.
+                </p>
               </div>
 
               <Input
@@ -509,7 +533,7 @@ export const UsersPage: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="officer@cbi.gov.in"
+                placeholder="officer@standalone.gov.in"
                 required
               />
 
@@ -522,77 +546,235 @@ export const UsersPage: React.FC = () => {
                 required
               />
             </div>
-          )}
-
-          {/* Custom Free-Text Role Title */}
-          <div className="pt-2 border-t border-slate-200 space-y-3">
-            <Input
-              label="Role Title / Designation (Free-Text Input) *"
-              value={customRoleTitle}
-              onChange={(e) => setCustomRoleTitle(e.target.value)}
-              placeholder="e.g. Investigating Officer, Senior Forensic Lead, Org Admin..."
-              required
-            />
-
-            {/* Organization Permission Checkboxes Grid */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                  <Key className="w-4 h-4 text-indigo-600" />
-                  Organization-Level Permission Checkboxes ({selectedPermissions.length} selected)
-                </label>
-                <div className="flex gap-2 text-[10px]">
-                  <button type="button" onClick={handleSelectAllPerms} className="text-indigo-600 font-bold hover:underline">
-                    Select All
-                  </button>
-                  <span className="text-slate-300">|</span>
-                  <button type="button" onClick={handleClearAllPerms} className="text-slate-500 font-bold hover:underline">
-                    Clear All
-                  </button>
-                </div>
+          ) : (
+            <>
+              {/* Enroll Mode Toggle */}
+              <div className="flex rounded border border-slate-300 p-1 bg-slate-100 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setEnrollMode('EXISTING')}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${
+                    enrollMode === 'EXISTING' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'
+                  }`}
+                >
+                  Enroll Existing Global User (Search by Email/ID)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEnrollMode('NEW')}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${
+                    enrollMode === 'NEW' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'
+                  }`}
+                >
+                  Provision New User Account
+                </button>
               </div>
 
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded max-h-56 overflow-y-auto space-y-3">
-                {['Cases', 'Documents', 'Evidence', 'Governance'].map((cat) => (
-                  <div key={cat} className="space-y-1.5">
-                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-0.5">
-                      {cat} Operations
+              {enrollMode === 'EXISTING' ? (
+                <div className="space-y-3">
+                  {allRegisteredOfficers.length > 0 && (
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-indigo-600" />
+                        Select from System Registered Officers ({allRegisteredOfficers.length})
+                      </label>
+                      <select
+                        value={existingUserId}
+                        onChange={(e) => {
+                          const uid = e.target.value;
+                          setExistingUserId(uid);
+                          const target = allRegisteredOfficers.find((u) => u.id === uid);
+                          if (target) {
+                            setSearchedUser(target);
+                            setUserLookupQuery(target.email);
+                            setLookupError(null);
+                          } else {
+                            setSearchedUser(null);
+                          }
+                        }}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                      >
+                        <option value="">-- Choose Registered Officer to Enroll into Agency --</option>
+                        {allRegisteredOfficers.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name} ({u.email}) — {u.isUnassigned ? '⚡ Standalone / Unassigned' : u.organizationNames || 'Enrolled'}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {ORG_PERMISSIONS_LIST.filter((p) => p.category === cat).map((p) => {
-                        const isChecked = selectedPermissions.includes(p.name);
-                        return (
-                          <label
-                            key={p.name}
-                            className={`flex items-center gap-2 p-2 rounded border transition-colors cursor-pointer text-xs ${
-                              isChecked
-                                ? 'bg-indigo-50/80 border-indigo-300 text-indigo-950 font-semibold'
-                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => togglePermission(p.name)}
-                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
-                            />
-                            <span>{p.label}</span>
-                          </label>
-                        );
-                      })}
+                  )}
+
+                  <div className="flex items-center gap-2 my-1">
+                    <div className="flex-1 border-t border-slate-200"></div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Or Search by Email / ID</span>
+                    <div className="flex-1 border-t border-slate-200"></div>
+                  </div>
+
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded text-blue-900 text-[11px]">
+                    <strong>Zero-Trust Officer Lookup:</strong> Select an officer from the list above or enter their exact Email or User ID below.
+                  </div>
+
+                  {/* Direct Search/Lookup Input */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase">
+                      Search Officer by Email or User ID *
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. priya.sharma@ed.gov.in or cm123abc..."
+                        value={userLookupQuery}
+                        onChange={(e) => setUserLookupQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleUserLookup();
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800 font-medium"
+                      />
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={handleUserLookup}
+                        isLoading={isSearchingUser}
+                        leftIcon={<Search className="w-3.5 h-3.5" />}
+                      >
+                        Lookup
+                      </Button>
                     </div>
                   </div>
-                ))}
+
+                  {/* Lookup Result Box */}
+                  {searchedUser && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded space-y-1 text-xs text-emerald-950 font-medium">
+                      <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                        Officer Verified: {searchedUser.name} ({searchedUser.email})
+                      </div>
+                      <div className="text-[11px] text-emerald-700 font-mono">
+                        User ID: {searchedUser.id}
+                      </div>
+                    </div>
+                  )}
+
+                  {lookupError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-900 font-medium flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                      <span>{lookupError}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded text-emerald-900 text-[11px]">
+                    <strong>Create New Account:</strong> Create a brand new user account and assign credentials for immediate login.
+                  </div>
+
+                  <Input
+                    label="Officer Full Name *"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Inspector Ramesh Varma"
+                    required
+                  />
+
+                  <Input
+                    label="Official Officer Email *"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="officer@cbi.gov.in"
+                    required
+                  />
+
+                  <Input
+                    label="Account Password *"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Custom Free-Text Role Title */}
+              <div className="pt-2 border-t border-slate-200 space-y-3">
+                <Input
+                  label="Role Title / Designation (Free-Text Input) *"
+                  value={customRoleTitle}
+                  onChange={(e) => setCustomRoleTitle(e.target.value)}
+                  placeholder="e.g. Investigating Officer, Senior Forensic Lead, Org Admin..."
+                  required
+                />
+
+                {/* Organization Permission Checkboxes Grid */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                      <Key className="w-4 h-4 text-indigo-600" />
+                      Organization-Level Permission Checkboxes ({selectedPermissions.length} selected)
+                    </label>
+                    <div className="flex gap-2 text-[10px]">
+                      <button type="button" onClick={handleSelectAllPerms} className="text-indigo-600 font-bold hover:underline">
+                        Select All
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button type="button" onClick={handleClearAllPerms} className="text-slate-500 font-bold hover:underline">
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded max-h-56 overflow-y-auto space-y-3">
+                    {['Cases', 'Documents', 'Evidence', 'Governance'].map((cat) => (
+                      <div key={cat} className="space-y-1.5">
+                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-0.5">
+                          {cat} Operations
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {ORG_PERMISSIONS_LIST.filter((p) => p.category === cat).map((p) => {
+                            const isChecked = selectedPermissions.includes(p.name);
+                            return (
+                              <label
+                                key={p.name}
+                                className={`flex items-center gap-2 p-2 rounded border transition-colors cursor-pointer text-xs ${
+                                  isChecked
+                                    ? 'bg-indigo-50/80 border-indigo-300 text-indigo-950 font-semibold'
+                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => togglePermission(p.name)}
+                                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                />
+                                <span>{p.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
             <Button type="button" variant="outline" onClick={() => setIsAddUserOpen(false)}>
               Cancel
             </Button>
             <Button type="submit" variant="primary" isLoading={isSubmitting} leftIcon={<UserPlus className="w-4 h-4" />}>
-              {enrollMode === 'EXISTING' ? 'Enroll Officer into Org' : 'Provision New Account'}
+              {enrollOrgId === 'NONE'
+                ? 'Provision Standalone Officer'
+                : enrollMode === 'EXISTING'
+                ? 'Enroll Officer into Org'
+                : 'Provision New Account'}
             </Button>
           </div>
         </form>

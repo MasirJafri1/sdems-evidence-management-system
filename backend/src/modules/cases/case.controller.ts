@@ -362,20 +362,17 @@ export async function addParticipant(req: AuthenticatedRequest, res: Response) {
   }
 
   /*
-   * Cross-Organization Support:
-   * Target user must have an active organization membership in ANY organization,
-   * not restricted to caseRecord.organizationId.
+   * Case Participant Enrollment:
+   * Target user must exist and be active in the system.
+   * Can be an existing agency officer or an unassigned officer assigned directly to this case.
    */
-  const targetMembership = await prisma.organizationMembership.findFirst({
-    where: {
-      userId: parsed.data.userId,
-      status: "ACTIVE"
-    }
+  const targetUser = await prisma.user.findUnique({
+    where: { id: parsed.data.userId }
   });
 
-  if (!targetMembership) {
-    res.status(400).json({
-      message: "User must have an active organization membership"
+  if (!targetUser || !targetUser.isActive) {
+    res.status(404).json({
+      message: "Target officer not found or account is deactivated"
     });
     return;
   }

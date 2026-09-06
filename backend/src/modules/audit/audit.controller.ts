@@ -91,12 +91,71 @@ export async function getAuditEvents(
     const currentUser = await prisma.user.findUnique({ where: { id: userId } });
     const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
 
-    const membership = await prisma.organizationMembership.findFirst({
-      where: { userId, status: "ACTIVE" }
-    });
+    if (isSuperAdmin) {
+      const events = await getOrganizationAuditHistory(undefined);
+      res.json({
+        totalEvents: events.length,
+        events
+      });
+      return;
+    }
 
-    const orgId = isSuperAdmin ? undefined : membership?.organizationId;
-    const events = await getOrganizationAuditHistory(orgId);
+    const memberships = await prisma.organizationMembership.findMany({
+      where: { userId, status: "ACTIVE" },
+      select: { organizationId: true }
+    });
+    const myOrgIds = memberships.map((m) => m.organizationId);
+
+    const participantCases = await prisma.caseParticipant.findMany({
+      where: { userId, status: "ACTIVE" },
+      select: { caseId: true }
+    });
+    const myCaseIds = participantCases.map((cp) => cp.caseId);
+
+    if (myOrgIds.length === 0 && myCaseIds.length === 0) {
+      res.json({
+        totalEvents: 0,
+        events: []
+      });
+      return;
+    }
+
+    const events = await prisma.auditEvent.findMany({
+      where: {
+        case: {
+          OR: [
+            ...(myOrgIds.length > 0 ? [{ organizationId: { in: myOrgIds } }] : []),
+            ...(myCaseIds.length > 0 ? [{ id: { in: myCaseIds } }] : [])
+          ]
+        }
+      },
+      include: {
+        actor: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        },
+        case: {
+          select: {
+            id: true,
+            caseNumber: true,
+            title: true,
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
 
     res.json({
       totalEvents: events.length,
@@ -113,20 +172,52 @@ export async function verifyAuditChainGeneral(
 ) {
   try {
     const userId = req.userId!;
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
     const caseId = req.query.caseId as string | undefined;
 
     if (caseId) {
+      const access = isSuperAdmin ? true : await checkCaseAccess(userId, caseId);
+      if (!access) {
+        res.status(403).json({ message: "Not authorized to verify this case audit chain." });
+        return;
+      }
       const result = await verifyCaseAuditChain(caseId);
       res.json({ caseId, ...result });
       return;
     }
 
-    const membership = await prisma.organizationMembership.findFirst({
-      where: { userId, status: "ACTIVE" }
+    const memberships = await prisma.organizationMembership.findMany({
+      where: { userId, status: "ACTIVE" },
+      select: { organizationId: true }
     });
+    const myOrgIds = memberships.map((m) => m.organizationId);
+
+    const participantCases = await prisma.caseParticipant.findMany({
+      where: { userId, status: "ACTIVE" },
+      select: { caseId: true }
+    });
+    const myCaseIds = participantCases.map((cp) => cp.caseId);
+
+    if (!isSuperAdmin && myOrgIds.length === 0 && myCaseIds.length === 0) {
+      res.json({
+        valid: true,
+        totalEvents: 0,
+        casesVerified: 0,
+        details: []
+      });
+      return;
+    }
 
     const cases = await prisma.case.findMany({
-      where: membership ? { organizationId: membership.organizationId } : {},
+      where: isSuperAdmin
+        ? {}
+        : {
+            OR: [
+              ...(myOrgIds.length > 0 ? [{ organizationId: { in: myOrgIds } }] : []),
+              ...(myCaseIds.length > 0 ? [{ id: { in: myCaseIds } }] : [])
+            ]
+          },
       take: 20
     });
 

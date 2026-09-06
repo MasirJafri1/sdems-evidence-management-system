@@ -61,6 +61,15 @@ export const createOrganizationApi = async (data: {
 };
 
 
+export const createStandaloneUserApi = async (data: {
+  name: string;
+  email: string;
+  password?: string;
+}): Promise<UserApiRecord> => {
+  const response = await apiClient.post<UserApiRecord>('/organizations/users/standalone', data);
+  return response.data;
+};
+
 export const createUserApi = async (
   organizationId: string,
   data: {
@@ -87,5 +96,26 @@ export const getOrganizationRolesApi = async (
   } catch (error) {
     return [];
   }
+};
+
+export const getSuperAdminAllDataApi = async (): Promise<{
+  success: boolean;
+  totalUsers: number;
+  totalOrganizations: number;
+  users: any[];
+  organizations: any[];
+}> => {
+  const response = await apiClient.get('/organizations/superadmin/all');
+  return response.data;
+};
+
+export const getSuperAdminUsersApi = async (): Promise<any[]> => {
+  const response = await apiClient.get('/organizations/superadmin/users');
+  return response.data;
+};
+
+export const getSuperAdminOrganizationsApi = async (): Promise<any[]> => {
+  const response = await apiClient.get('/organizations/superadmin/organizations');
+  return response.data;
 };
 

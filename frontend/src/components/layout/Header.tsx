@@ -48,7 +48,7 @@ export const Header: React.FC = () => {
                 <span className="font-semibold text-slate-700">
                   {user.isSuperAdmin
                     ? 'Cross-Agency National Governance'
-                    : user.organization?.name || 'Central Bureau of Investigation (CBI)'}
+                    : user.organization?.name || 'Unassigned Officer (No Agency Affiliation)'}
                 </span>
                 <span className="text-slate-300">|</span>
                 <span className="font-mono text-[10px] text-slate-400">{user.email}</span>
