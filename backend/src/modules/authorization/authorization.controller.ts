@@ -28,7 +28,7 @@ async function isAuthorizedToManagePermissions(userId: string, caseId: string): 
   }
 
   // 1. Global Super Admin
-  if (currentUser.email === "superadmin@gov.in") {
+  if ((currentUser as any).systemRole === "SUPER_ADMIN") {
     return true;
   }
 

@@ -85,6 +85,11 @@ export interface SearchHitItem {
 /**
  * Executes a scoped hybrid search (BM25 + Semantic Vector + Strict RBAC Scope Filtering).
  * Guaranteed Zero Data Leakage: Documents outside the user's permitted case/org are excluded at query time.
+ *
+ * Updated to support multi-organization scoping:
+ * - SuperAdmin: no filters
+ * - Org Admin(s): terms filter on all admin org IDs + participated case IDs
+ * - Regular user: terms filter on participated case IDs only
  */
 export async function executeScopedSearch(
   options: SearchQueryOptions,
@@ -103,10 +108,26 @@ export async function executeScopedSearch(
   const mustFilters: any[] = [];
 
   if (!scope.isSuperAdmin) {
-    if (scope.isOrgAdmin && scope.organizationId) {
-      mustFilters.push({ term: { organizationId: scope.organizationId } });
+    if (scope.adminOrganizationIds.length > 0) {
+      // Org Admin: can see everything in admin orgs + explicitly participated cases
+      const shouldClauses: any[] = [
+        { terms: { organizationId: scope.adminOrganizationIds } }
+      ];
+
+      if (scope.allowedCaseIds.length > 0) {
+        shouldClauses.push({ terms: { caseId: scope.allowedCaseIds } });
+      }
+
+      shouldClauses.push({ term: { allowedUserIds: scope.userId } });
+
+      mustFilters.push({
+        bool: {
+          should: shouldClauses,
+          minimum_should_match: 1
+        }
+      });
     } else {
-      // Officer / Investigator: strictly restricted to allowed cases or explicitly assigned documents
+      // Regular user: strictly restricted to allowed cases or explicitly assigned documents
       if (scope.allowedCaseIds.length === 0) {
         // User is not participant in any case -> return 0 results
         return { total: 0, hits: [] };
@@ -175,17 +196,18 @@ export async function executeScopedSearch(
     size: limit,
     query: esQuery,
     highlight: {
+      require_field_match: false,
       fields: {
-        title: {},
+        title: { number_of_fragments: 0 },
         content: {
           fragment_size: 160,
           number_of_fragments: 3,
-          no_match_size: 100
+          no_match_size: 160
         },
-        summary: {},
-        serialNumber: {}
+        summary: { number_of_fragments: 0 },
+        serialNumber: { number_of_fragments: 0 }
       },
-      pre_tags: ["<mark class='bg-yellow-200 text-yellow-900 rounded px-1'>"],
+      pre_tags: ["<mark>"],
       post_tags: ["</mark>"]
     }
   };
@@ -209,14 +231,34 @@ export async function executeScopedSearch(
 
     const hits: SearchHitItem[] = (esResponse.hits?.hits || []).map((h: any) => {
       const src = h._source || {};
-      const highlight = h.highlight
-        ? Object.values(h.highlight).flat().join(" ... ")
-        : src.summary || src.content || src.title;
+      const highlightedTitle = h.highlight?.title?.[0] || src.title;
+      let highlightSnippet = "";
+
+      if (h.highlight?.content && h.highlight.content.length > 0) {
+        highlightSnippet = h.highlight.content.join(" ... ");
+      } else if (h.highlight?.summary && h.highlight.summary.length > 0) {
+        highlightSnippet = h.highlight.summary.join(" ... ");
+      } else if (h.highlight && Object.keys(h.highlight).length > 0) {
+        const nonTitleFragments = Object.entries(h.highlight)
+          .filter(([key]) => key !== "title")
+          .flatMap(([, vals]) => vals as string[]);
+        if (nonTitleFragments.length > 0) {
+          highlightSnippet = nonTitleFragments.join(" ... ");
+        }
+      }
+
+      if (!highlightSnippet) {
+        if (src.content) {
+          highlightSnippet = src.content.slice(0, 180) + "...";
+        } else {
+          highlightSnippet = src.summary || src.title;
+        }
+      }
 
       return {
         id: src.id || h._id,
         entityType: src.entityType,
-        title: src.title,
+        title: highlightedTitle,
         content: src.content || "",
         caseId: src.caseId,
         caseNumber: src.caseNumber,
@@ -227,7 +269,7 @@ export async function executeScopedSearch(
         versionNumber: src.versionNumber,
         sha256Hash: src.sha256Hash,
         score: h._score || 0,
-        highlightSnippet: highlight,
+        highlightSnippet,
         uploadedBy: src.uploadedBy,
         createdAt: src.createdAt
       };
@@ -270,8 +312,15 @@ export async function executeScopedSearch(
   try {
     const caseFilter: any = scope.isSuperAdmin
       ? {}
-      : scope.isOrgAdmin && scope.organizationId
-        ? { organizationId: scope.organizationId }
+      : scope.adminOrganizationIds.length > 0
+        ? {
+            OR: [
+              { organizationId: { in: scope.adminOrganizationIds } },
+              ...(scope.allowedCaseIds.length > 0
+                ? [{ id: { in: scope.allowedCaseIds } }]
+                : [])
+            ]
+          }
         : { id: { in: scope.allowedCaseIds } };
 
     const qLower = query.toLowerCase().trim();
@@ -285,6 +334,7 @@ export async function executeScopedSearch(
 
     const permittedCaseIds = permittedCases.map((c) => c.id);
     const caseMap = new Map(permittedCases.map((c) => [c.id, c.caseNumber]));
+    const caseOrgMap = new Map(permittedCases.map((c) => [c.id, c.organizationId]));
 
     const fallbackHits: SearchHitItem[] = [];
 
@@ -322,7 +372,7 @@ export async function executeScopedSearch(
           content: d.description || "",
           caseId: d.caseId,
           caseNumber: caseMap.get(d.caseId) || "CASE-UNKNOWN",
-          organizationId: scope.organizationId || "",
+          organizationId: caseOrgMap.get(d.caseId) || "",
           documentType: d.documentType || undefined,
           versionNumber: v?.versionNumber || 1,
           sha256Hash: v?.sha256Hash || undefined,
@@ -370,7 +420,7 @@ export async function executeScopedSearch(
           content: ev.description || "",
           caseId: ev.caseId,
           caseNumber: caseMap.get(ev.caseId) || "CASE-UNKNOWN",
-          organizationId: scope.organizationId || "",
+          organizationId: caseOrgMap.get(ev.caseId) || "",
           serialNumber: ev.evidenceNumber || undefined,
           evidenceType: "EXHIBIT",
           sha256Hash: ev.documentVersion?.sha256Hash || undefined,

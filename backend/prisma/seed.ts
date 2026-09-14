@@ -36,8 +36,9 @@ async function seedSuperAdmin() {
 
   try {
     // 0. Clear all existing data from database tables
+    console.log("🧹 Clearing all existing database tables...");
     await prisma.$executeRawUnsafe(
-      `TRUNCATE TABLE "CustodyTransfer", "CustodyEvent", "Evidence", "DocumentVersion", "Document", "CasePermission", "CaseParticipant", "Case", "AuditEvent", "RolePermission", "OrganizationMembership", "Role", "User", "Organization" CASCADE;`
+      `TRUNCATE TABLE "CustodyEvent", "CustodyTransfer", "Evidence", "BlockchainAnchor", "DocumentVersion", "Document", "CasePermission", "CaseParticipant", "CaseAccessRequest", "AuditEvent", "RolePermission", "OrganizationMembership", "Role", "User", "Organization", "Permission" CASCADE;`
     );
     console.log("✅ Database tables successfully cleared!\n");
 
@@ -57,17 +58,18 @@ async function seedSuperAdmin() {
 
     await prisma.user.upsert({
       where: { email: "superadmin@gov.in" },
-      update: { passwordHash: hashedPassword },
+      update: { passwordHash: hashedPassword, systemRole: "SUPER_ADMIN" },
       create: {
         name: "System Super Admin",
         email: "superadmin@gov.in",
-        passwordHash: hashedPassword
+        passwordHash: hashedPassword,
+        systemRole: "SUPER_ADMIN"
       }
     });
 
     console.log("\n✅ GLOBAL STANDALONE SUPER ADMIN SEEDED SUCCESSFULLY!");
     console.log("==========================================");
-    console.log("  Role              : Unassociated Global Super Admin");
+    console.log("  Role              : Unassociated Global Super Admin (SUPER_ADMIN)");
     console.log("  Official Email    : superadmin@gov.in");
     console.log("  Default Password  : Password123!");
     console.log("==========================================\n");

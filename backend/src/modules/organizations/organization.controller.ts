@@ -8,12 +8,9 @@ import {
   createRoleSchema,
   createUserSchema
 } from "./organization.schema";
+import { isSuperAdmin as checkIsSuperAdmin } from "../authorization/authorization.context";
 
-export function isUserSuperAdmin(email?: string | null): boolean {
-  if (!email) return false;
-  const clean = email.trim().toLowerCase();
-  return clean === "superadmin@gov.in" || clean.startsWith("superadmin@");
-}
+// isSuperAdmin checks are now handled via systemRole using checkIsSuperAdmin(userId) from authorization.context
 
 async function getMembership(userId: string, organizationId: string) {
   return prisma.organizationMembership.findUnique({
@@ -187,8 +184,7 @@ export async function createRole(req: AuthenticatedRequest, res: Response) {
   const organizationId = req.params.organizationId as string;
   const userId = req.userId!;
 
-  const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+  const isSuperAdmin = await checkIsSuperAdmin(userId);
 
   if (!isSuperAdmin) {
     const membership = await getMembership(userId, organizationId);
@@ -260,11 +256,8 @@ export async function createRole(req: AuthenticatedRequest, res: Response) {
 
 export async function createStandaloneUser(req: AuthenticatedRequest, res: Response) {
   const currentUserId = req.userId!;
-  const currentUser = await prisma.user.findUnique({
-    where: { id: currentUserId }
-  });
 
-  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+  const isSuperAdmin = await checkIsSuperAdmin(currentUserId);
 
   if (!isSuperAdmin) {
     res.status(403).json({
@@ -312,11 +305,7 @@ export async function createUser(req: AuthenticatedRequest, res: Response) {
   const organizationId = req.params.organizationId as string;
   const currentUserId = req.userId!;
 
-  const currentUser = await prisma.user.findUnique({
-    where: { id: currentUserId }
-  });
-
-  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+  const isSuperAdmin = await checkIsSuperAdmin(currentUserId);
 
   // Support standalone unassigned user provisioning by Super Admin
   if (organizationId === "none" || organizationId === "unassigned" || organizationId === "standalone") {
@@ -547,11 +536,7 @@ export async function getOrganizationUsers(
   const organizationId = req.params.organizationId as string;
   const userId = req.userId!;
 
-  const reqUser = await prisma.user.findUnique({
-    where: { id: userId }
-  });
-
-  const isSuperAdmin = isUserSuperAdmin(reqUser?.email);
+  const isSuperAdmin = await checkIsSuperAdmin(userId);
 
   // 1. If Super Admin:
   if (isSuperAdmin) {
@@ -775,8 +760,7 @@ export async function lookupUser(req: AuthenticatedRequest, res: Response) {
 export async function getAllRegisteredOfficers(req: AuthenticatedRequest, res: Response) {
   try {
     const userId = req.userId;
-    const currentUser = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null;
-    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+    const isSuperAdmin = await checkIsSuperAdmin(userId!);
 
     if (!isSuperAdmin) {
       res.status(403).json({ message: "Access denied. Global directory browsing is disabled. Search users by Email or ID." });
@@ -818,8 +802,7 @@ export async function getAllRegisteredOfficers(req: AuthenticatedRequest, res: R
 export async function getAllOrganizations(req: AuthenticatedRequest, res: Response) {
   try {
     const userId = req.userId!;
-    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-    const isSuperAdmin = isUserSuperAdmin(currentUser?.email);
+    const isSuperAdmin = await checkIsSuperAdmin(userId);
 
     let whereClause: any = {};
 
@@ -887,8 +870,7 @@ export async function getAllOrganizations(req: AuthenticatedRequest, res: Respon
 export async function getSuperAdminAllData(req: AuthenticatedRequest, res: Response) {
   try {
     const userId = req.userId!;
-    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-    const isSuperAdmin = isUserSuperAdmin(currentUser?.email);
+    const isSuperAdmin = await checkIsSuperAdmin(userId);
 
     if (!isSuperAdmin) {
       res.status(403).json({
@@ -969,7 +951,7 @@ export async function getSuperAdminAllData(req: AuthenticatedRequest, res: Respo
         createdAt: u.createdAt,
         isUnassigned,
         organizationNames: orgNames || "Unassigned Officer",
-        roleNames: roleNames || (u.email === "superadmin@gov.in" ? "Global Super Admin" : "Standalone User"),
+        roleNames: roleNames || ((u as any).systemRole === "SUPER_ADMIN" ? "Global Super Admin" : "Standalone User"),
         memberships: u.memberships
       };
     });
@@ -989,8 +971,7 @@ export async function getSuperAdminAllData(req: AuthenticatedRequest, res: Respo
 export async function getSuperAdminUsers(req: AuthenticatedRequest, res: Response) {
   try {
     const userId = req.userId!;
-    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-    const isSuperAdmin = isUserSuperAdmin(currentUser?.email);
+    const isSuperAdmin = await checkIsSuperAdmin(userId);
 
     if (!isSuperAdmin) {
       res.status(403).json({ message: "Access denied. Super Admin authority required." });
@@ -1031,7 +1012,7 @@ export async function getSuperAdminUsers(req: AuthenticatedRequest, res: Respons
       createdAt: u.createdAt,
       isUnassigned: u.memberships.length === 0,
       organizationNames: u.memberships.map((m) => m.organization.name).join(", ") || "Unassigned Officer",
-      roleNames: u.memberships.map((m) => m.role.name).join(", ") || (u.email === "superadmin@gov.in" ? "Global Super Admin" : "Standalone User"),
+      roleNames: u.memberships.map((m) => m.role.name).join(", ") || ((u as any).systemRole === "SUPER_ADMIN" ? "Global Super Admin" : "Standalone User"),
       memberships: u.memberships
     }));
 
@@ -1044,8 +1025,7 @@ export async function getSuperAdminUsers(req: AuthenticatedRequest, res: Respons
 export async function getSuperAdminOrganizations(req: AuthenticatedRequest, res: Response) {
   try {
     const userId = req.userId!;
-    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-    const isSuperAdmin = isUserSuperAdmin(currentUser?.email);
+    const isSuperAdmin = await checkIsSuperAdmin(userId);
 
     if (!isSuperAdmin) {
       res.status(403).json({ message: "Access denied. Super Admin authority required." });

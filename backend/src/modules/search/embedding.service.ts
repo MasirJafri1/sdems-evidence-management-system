@@ -1,23 +1,27 @@
 import { env } from "../../config/env";
+import { SDEMS_VECTOR_DIMENSION } from "./elastic.client";
 
 /**
  * OpenRouter Embedding Service
- * Calls OpenRouter's /api/v1/embeddings endpoint.
- * Supported models include:
- * - sentence-transformers/all-minilm-l6-v2 (384 dimensions)
- * - qwen/qwen3-embedding-8b (1024 dimensions)
- * - openai/text-embedding-3-small (1536 dimensions)
+ * Produces normalized vectors aligned with Elasticsearch dense_vector(1024 dims).
  */
+
+function normalizeVector(vec: number[]): number[] {
+  let norm = 0;
+  for (let i = 0; i < vec.length; i++) {
+    norm += vec[i] * vec[i];
+  }
+  norm = Math.sqrt(norm) || 1;
+  return vec.map((v) => Number((v / norm).toFixed(6)));
+}
 
 export async function generateEmbedding(text: string): Promise<number[]> {
   const apiKey = env.OPENROUTER_API_KEY;
-  const model = env.OPENROUTER_EMBEDDING_MODEL || "sentence-transformers/all-minilm-l6-v2";
+  const model = env.OPENROUTER_EMBEDDING_MODEL || "qwen/qwen3-embedding-8b";
+  const targetDim = SDEMS_VECTOR_DIMENSION;
 
-  // If no API key is provided, return a deterministic fallback pseudo-embedding
-  // so local development without an immediate paid key never crashes
   if (!apiKey || apiKey.trim() === "") {
-    console.warn("[EmbeddingService] OPENROUTER_API_KEY not set. Generating deterministic pseudo-vector.");
-    return generateDeterministicVector(text, getModelDimension(model));
+    return generateDeterministicVector(text, targetDim);
   }
 
   try {
@@ -31,47 +35,41 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       },
       body: JSON.stringify({
         model,
-        input: text.slice(0, 8000) // truncate large inputs if needed
+        input: text.slice(0, 8000)
       })
     });
 
     if (!response.ok) {
       const errBody = await response.text();
-      console.warn(`[EmbeddingService] OpenRouter returned ${response.status}:`, errBody);
-      return generateDeterministicVector(text, getModelDimension(model));
+      console.warn(`[EmbeddingService] OpenRouter returned ${response.status}: ${errBody}. Using fallback vector.`);
+      return generateDeterministicVector(text, targetDim);
     }
 
     const data: any = await response.json();
     if (data?.data?.[0]?.embedding) {
       const rawVector: number[] = data.data[0].embedding;
-      const targetDim = getModelDimension(model);
+      let adjustedVector: number[];
+
       if (rawVector.length === targetDim) {
-        return rawVector;
+        adjustedVector = rawVector;
+      } else if (rawVector.length > targetDim) {
+        adjustedVector = rawVector.slice(0, targetDim);
+      } else {
+        adjustedVector = [...rawVector, ...new Array(targetDim - rawVector.length).fill(0)];
       }
-      console.warn(`[EmbeddingService] OpenRouter returned ${rawVector.length} dims, adjusting to mapping ${targetDim} dims.`);
-      if (rawVector.length > targetDim) {
-        return rawVector.slice(0, targetDim);
-      }
-      // Pad with zeros if smaller
-      return [...rawVector, ...new Array(targetDim - rawVector.length).fill(0)];
+
+      return normalizeVector(adjustedVector);
     }
 
-    return generateDeterministicVector(text, getModelDimension(model));
+    return generateDeterministicVector(text, targetDim);
   } catch (err: any) {
     console.warn("[EmbeddingService] Error calling OpenRouter embeddings:", err.message);
-    return generateDeterministicVector(text, getModelDimension(model));
+    return generateDeterministicVector(text, targetDim);
   }
 }
 
-function getModelDimension(model: string): number {
-  if (model.includes("minilm")) return 384;
-  if (model.includes("qwen") || model.includes("mistral")) return 1024;
-  return 1536;
-}
-
 /**
- * Fallback deterministic vector generator based on text hash
- * Ensures local testing works without external rate limits
+ * Fallback deterministic normalized vector generator based on text hash
  */
 function generateDeterministicVector(text: string, dims: number): number[] {
   let hash = 0;

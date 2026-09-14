@@ -229,9 +229,10 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
                   ) : (
                     <Package className="w-4 h-4 text-amber-600 shrink-0" />
                   )}
-                  <span className="font-bold text-slate-900 text-xs truncate group-hover:text-blue-900">
-                    {hit.title}
-                  </span>
+                  <span
+                    className="font-bold text-slate-900 text-xs truncate group-hover:text-blue-900"
+                    dangerouslySetInnerHTML={{ __html: hit.title }}
+                  />
                   <Badge variant={hit.entityType === 'DOCUMENT' ? 'info' : 'warning'} size="sm">
                     {hit.entityType === 'DOCUMENT' ? `v${hit.versionNumber || 1}.0` : hit.evidenceType || 'EXHIBIT'}
                   </Badge>
@@ -246,7 +247,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
                       className="text-[11px] text-slate-600 line-clamp-2"
                       dangerouslySetInnerHTML={{ __html: hit.highlightSnippet }}
                     />
-                    {hit.highlightSnippet.includes("<mark") && (
+                    {(hit.highlightSnippet.includes("<mark") || hit.highlightSnippet.includes("<em")) && (
                       <span className="inline-block text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
                         ✓ In-file Content Match
                       </span>

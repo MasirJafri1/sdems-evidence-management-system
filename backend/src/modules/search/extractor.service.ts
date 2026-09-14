@@ -1,11 +1,46 @@
 import fs from "fs";
+import mammoth from "mammoth";
+import { createWorker } from "tesseract.js";
+
+// Use require for pdf-parse to avoid TypeScript call signature mismatch in CommonJS
+const pdfParse = require("pdf-parse");
 
 /**
- * Robust Text Extractor for In-File Document Search
+ * Sanitizes raw extracted text by stripping out raw PDF operators, structural object keywords, and font coordinate streams
+ */
+function sanitizeExtractedText(text: string): string {
+  if (!text) return "";
+
+  let cleaned = text
+    // Remove PDF structural object tags & headers (PDF-1.3, 1 0 R, 4 0 obj, MediaBox, endobj, endstream, etc.)
+    .replace(/PDF-\d+\.\d+/gi, " ")
+    .replace(/\b\d+\s+\d+\s+(R|obj)\b/gi, " ")
+    .replace(/\b(endobj|endstream|MediaBox|CropBox|Resources|Parent|Type|Page|Pages|Length|Catalog|Outlines)\b/gi, " ")
+    .replace(/\/Type\s*\/[A-Za-z0-9]+/gi, " ")
+    // Remove font reference identifiers (e.g. /F1, /F2, /F15, /Helvetica)
+    .replace(/\/[A-Za-z0-9_\-]+/g, " ")
+    // Remove signed/unsigned floating point coordinates (e.g. 722.8348818897637784, 595.2799999999999727, -5.6692913385826778)
+    .replace(/-?\b\d+\.\d+\b/g, " ")
+    // Remove PDF text/graphics operators and font parameters (BT, ET, Tf, TL, Td, TD, Tm, T*, rg, RG, re, cm, Tj, TJ, re f, etc.)
+    .replace(/\b(BT|ET|Tf|TL|Td|TD|Tm|T\*|rg|RG|re|cm|Tj|TJ|re\s+f)\b/gi, " ")
+    // Remove single character vector drawing operators (m, l, c, v, y, h, W, n, q, Q) when isolated by space/start/end
+    .replace(/(?:^|\s)[a-z]\b/gi, " ")
+    // Remove standalone single character or repeating character noise
+    .replace(/(?:\b[A-Za-z0-9]\b\s*){3,}/g, " ")
+    // Collapse multiple spaces
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned;
+}
+
+/**
+ * Robust Text Extractor for In-File Document Search & Indexing
  * Supports:
- * - Plain text, Markdown, CSV, JSON, Log files (.txt, .md, .csv, .json, .log)
- * - PDF documents (extracts embedded textual streams)
- * - HTML and XML documents
+ * - Plain text, Markdown, CSV, JSON, Log files (.txt, .md, .csv, .json, .log, .xml, .html)
+ * - PDF documents (via pdf-parse + PDF stream sanitizer)
+ * - Word documents (.docx, .doc via mammoth)
+ * - Images (.jpg, .jpeg, .png, .bmp, .tiff via tesseract.js OCR)
  */
 export async function extractTextFromFile(
   filePathOrBuffer: string | Buffer,
@@ -39,15 +74,70 @@ export async function extractTextFromFile(
       lowerName.endsWith(".md") ||
       lowerName.endsWith(".log")
     ) {
-      return buffer.toString("utf8").slice(0, 100000); // Index up to first 100k chars
+      return sanitizeExtractedText(buffer.toString("utf8")).slice(0, 100000);
     }
 
-    // 2. PDF Documents: Native fast stream parser
+    // 2. PDF Documents via pdf-parse
     if (lowerMime.includes("pdf") || lowerName.endsWith(".pdf")) {
-      return extractTextFromPdfBuffer(buffer);
+      try {
+        const pdfModule = require("pdf-parse");
+        const parseFn = typeof pdfModule === "function" ? pdfModule : pdfModule.default || pdfModule.PDFParse;
+        if (typeof parseFn === "function") {
+          const parsed = await parseFn(buffer);
+          if (parsed && parsed.text && parsed.text.trim().length > 0) {
+            const sanitized = sanitizeExtractedText(parsed.text);
+            if (sanitized.length > 0) {
+              return sanitized.slice(0, 100000);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn("[TextExtractor] pdf-parse failed, falling back to raw extractor:", err.message);
+      }
+      return extractPrintableStrings(buffer);
     }
 
-    // 3. Fallback: Extract readable ASCII/UTF-8 strings from binary file
+    // 3. Word Documents (.docx, .doc) via mammoth
+    if (
+      lowerMime.includes("wordprocessingml") ||
+      lowerMime.includes("msword") ||
+      lowerName.endsWith(".docx") ||
+      lowerName.endsWith(".doc")
+    ) {
+      try {
+        const result = await mammoth.extractRawText({ buffer });
+        if (result && result.value && result.value.trim().length > 0) {
+          return sanitizeExtractedText(result.value).slice(0, 100000);
+        }
+      } catch (err: any) {
+        console.warn("[TextExtractor] mammoth failed for docx:", err.message);
+      }
+      return extractPrintableStrings(buffer);
+    }
+
+    // 4. Images (.png, .jpg, .jpeg, .bmp, .tiff, .webp) via Tesseract OCR
+    if (
+      lowerMime.includes("image") ||
+      lowerName.endsWith(".png") ||
+      lowerName.endsWith(".jpg") ||
+      lowerName.endsWith(".jpeg") ||
+      lowerName.endsWith(".bmp") ||
+      lowerName.endsWith(".webp")
+    ) {
+      try {
+        const worker = await createWorker("eng");
+        const ret = await worker.recognize(buffer);
+        await worker.terminate();
+        if (ret && ret.data && ret.data.text) {
+          return sanitizeExtractedText(ret.data.text).slice(0, 100000);
+        }
+      } catch (err: any) {
+        console.warn("[TextExtractor] Tesseract OCR failed:", err.message);
+      }
+      return extractPrintableStrings(buffer);
+    }
+
+    // 5. Fallback: Extract readable ASCII/UTF-8 strings from binary file
     return extractPrintableStrings(buffer);
   } catch (err: any) {
     console.warn("[TextExtractor] Failed to extract text from file:", err.message);
@@ -55,86 +145,21 @@ export async function extractTextFromFile(
   }
 }
 
-import zlib from "zlib";
-
 /**
- * Extracts plain-text chunks from PDF format:
- * 1. Handles compressed FlateDecode streams via zlib
- * 2. Parses PDF text operators (/BT ... /ET, Tj, TJ)
- * 3. Falls back to ASCII printable strings
- */
-function extractTextFromPdfBuffer(buffer: Buffer): string {
-  const content = buffer.toString("latin1");
-  const textBlocks: string[] = [];
-
-  // Helper to parse text operators from an uncompressed string
-  function parsePdfTextOps(str: string) {
-    // Parenthesized literals: (Some text) Tj
-    const regexLiteral = /\(([^)]+)\)\s*Tj/g;
-    let match;
-    while ((match = regexLiteral.exec(str)) !== null) {
-      const text = match[1].replace(/\\([()\\])/g, "$1").trim();
-      if (text.length > 1) {
-        textBlocks.push(text);
-      }
-      if (textBlocks.length > 5000) return;
-    }
-
-    // Array-based text: [ (Part 1) -10 (Part 2) ] TJ
-    const regexArray = /\[([^\]]+)\]\s*TJ/g;
-    while ((match = regexArray.exec(str)) !== null) {
-      const rawArray = match[1];
-      const subLiterals = rawArray.match(/\(([^)]+)\)/g) || [];
-      const joined = subLiterals
-        .map((s) => s.slice(1, -1).replace(/\\([()\\])/g, "$1"))
-        .join(" ")
-        .trim();
-      if (joined.length > 1) {
-        textBlocks.push(joined);
-      }
-      if (textBlocks.length > 5000) return;
-    }
-  }
-
-  // 1. First parse uncompressed text operators
-  parsePdfTextOps(content);
-
-  // 2. Decompress all FlateDecode streams in the PDF (ReportLab, Adobe, LibreOffice)
-  const streamRegex = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
-  let streamMatch;
-  while ((streamMatch = streamRegex.exec(content)) !== null) {
-    const rawStream = Buffer.from(streamMatch[1], "latin1");
-    try {
-      const decompressed = zlib.inflateSync(rawStream);
-      const decompressedText = decompressed.toString("latin1");
-      parsePdfTextOps(decompressedText);
-      // Also extract printable sentences directly from decompressed text
-      const cleanMatches = decompressedText.match(/[A-Za-z0-9\s.,!?:;@_#\-\/]{4,}/g) || [];
-      for (const m of cleanMatches) {
-        const tr = m.trim();
-        if (tr.length > 3 && !tr.includes("obj") && !tr.includes("endobj")) {
-          textBlocks.push(tr);
-        }
-      }
-    } catch {
-      // Stream is not zlib or is an image/font stream; continue
-    }
-    if (textBlocks.length > 5000) break;
-  }
-
-  const extracted = Array.from(new Set(textBlocks)).join(" ").replace(/\s+/g, " ").trim();
-  return extracted.length > 20 ? extracted.slice(0, 80000) : extractPrintableStrings(buffer);
-}
-
-/**
- * Extracts readable string words from raw binary buffers
+ * Extracts readable string words from raw binary buffers, filtering out PDF code operators
  */
 function extractPrintableStrings(buffer: Buffer): string {
-  const str = buffer.toString("latin1");
-  const matches = str.match(/[A-Za-z0-9\s.,!?:;@_#\-\/]{4,}/g) || [];
-  return matches
-    .filter((w) => w.trim().length > 3)
+  const str = buffer.toString("utf8");
+  const matches = str.match(/[A-Za-z][A-Za-z0-9\s.,!?:;@_#\-\/'"]{3,}/g) || [];
+  
+  const rawClean = matches
+    .filter((w) => {
+      const tr = w.trim();
+      if (tr.includes("/F") || tr.includes("Tf") || tr.includes("TL") || tr.includes("Td") || tr.includes("re f") || tr.includes("endobj")) return false;
+      return tr.length > 3 && /[A-Za-z]/.test(tr);
+    })
     .slice(0, 1000)
-    .join(" ")
-    .slice(0, 40000);
+    .join(" ");
+
+  return sanitizeExtractedText(rawClean).slice(0, 40000);
 }

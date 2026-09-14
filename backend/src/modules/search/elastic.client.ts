@@ -6,16 +6,9 @@ export const esClient = new Client({
 });
 
 export const SDEMS_SEARCH_INDEX = "sdems_search_index";
+export const SDEMS_VECTOR_DIMENSION = 1024;
 
-const VECTOR_DIMENSION =
-  env.OPENROUTER_EMBEDDING_MODEL.includes("minilm")
-    ? 384
-    : env.OPENROUTER_EMBEDDING_MODEL.includes("qwen") ||
-        env.OPENROUTER_EMBEDDING_MODEL.includes("mistral")
-      ? 1024
-      : 1536;
-
-export async function initElasticsearch(): Promise<{
+export async function initElasticsearch(recreateIfMismatch = false): Promise<{
   connected: boolean;
   indexCreated: boolean;
   error?: string;
@@ -30,7 +23,16 @@ export async function initElasticsearch(): Promise<{
       index: SDEMS_SEARCH_INDEX
     });
 
-    if (!indexExists) {
+    if (indexExists && recreateIfMismatch) {
+      console.log(`[Elasticsearch] Recreating index "${SDEMS_SEARCH_INDEX}" with dimension ${SDEMS_VECTOR_DIMENSION}...`);
+      await esClient.indices.delete({ index: SDEMS_SEARCH_INDEX });
+    }
+
+    const checkExistsAgain = await esClient.indices.exists({
+      index: SDEMS_SEARCH_INDEX
+    });
+
+    if (!checkExistsAgain) {
       const createPayload: any = {
         index: SDEMS_SEARCH_INDEX,
         settings: {
@@ -84,7 +86,7 @@ export async function initElasticsearch(): Promise<{
             createdAt: { type: "date" },
             embedding: {
               type: "dense_vector",
-              dims: VECTOR_DIMENSION,
+              dims: SDEMS_VECTOR_DIMENSION,
               index: true,
               similarity: "cosine"
             }
@@ -93,7 +95,7 @@ export async function initElasticsearch(): Promise<{
       };
 
       await esClient.indices.create(createPayload);
-      console.log(`[Elasticsearch] Index "${SDEMS_SEARCH_INDEX}" successfully initialized with dense_vector(${VECTOR_DIMENSION} dims).`);
+      console.log(`[Elasticsearch] Index "${SDEMS_SEARCH_INDEX}" successfully initialized with dense_vector(${SDEMS_VECTOR_DIMENSION} dims).`);
       return { connected: true, indexCreated: true };
     }
 

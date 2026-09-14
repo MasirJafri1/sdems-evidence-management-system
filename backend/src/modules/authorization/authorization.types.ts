@@ -6,6 +6,7 @@ export interface AuthorizationResult {
 
   source?:
     | "SUPER_ADMIN"
+    | "ORG_ADMIN"
     | "CASE_ADMIN"
     | "CASE_PERMISSION"
     | "ROLE_PERMISSION"
@@ -13,3 +14,4 @@ export interface AuthorizationResult {
 
   effect?: PermissionEffect;
 }
+

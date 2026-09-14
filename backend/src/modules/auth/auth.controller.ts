@@ -52,7 +52,7 @@ export async function login(req: Request, res: Response) {
     userId: user.id
   });
 
-  const isSuperAdmin = user.email.trim().toLowerCase() === "superadmin@gov.in";
+  const isSuperAdmin = (user as any).systemRole === "SUPER_ADMIN";
 
   const membership = await prisma.organizationMembership.findFirst({
     where: { userId: user.id, status: "ACTIVE" },

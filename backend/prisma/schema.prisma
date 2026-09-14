@@ -75,6 +75,10 @@ enum PermissionEffect {
   DENY
 }
 
+enum SystemRole {
+  SUPER_ADMIN
+}
+
 model Organization {
   id          String   @id @default(cuid())
   name        String
@@ -90,11 +94,12 @@ model Organization {
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           String      @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String      @unique
   passwordHash String
-  isActive     Boolean  @default(true)
+  isActive     Boolean     @default(true)
+  systemRole   SystemRole?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

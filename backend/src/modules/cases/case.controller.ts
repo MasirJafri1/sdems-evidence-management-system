@@ -5,6 +5,7 @@ import { prisma } from "../../lib/prisma";
 import { createCaseSchema, addParticipantSchema } from "./case.schema";
 import { createAuditEvent } from "../audit/audit.service";
 import { checkCasePermission, grantCasePermission } from "../authorization/authorization.service";
+import { isSuperAdmin as checkIsSuperAdmin } from "../authorization/authorization.context";
 
 async function getOrganizationMembership(
   userId: string,
@@ -119,11 +120,7 @@ export async function getCases(req: AuthenticatedRequest, res: Response) {
   const userId = req.userId!;
   const organizationId = req.params.organizationId as string;
 
-  const currentUser = await prisma.user.findUnique({
-    where: { id: userId }
-  });
-
-  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+  const isSuperAdmin = await checkIsSuperAdmin(userId);
 
   // 1. Global Super Admin can view ALL cases across ALL organizations
   if (isSuperAdmin) {
@@ -328,6 +325,21 @@ export async function addParticipant(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
+  // Use centralized auth: SuperAdmin and OrgAdmin can also manage participants
+  const authResult = await checkCasePermission({
+    userId: currentUserId,
+    caseId,
+    permissionName: "CASE_READ"
+  });
+
+  if (!authResult.allowed) {
+    res.status(403).json({
+      message: "You are not authorized to access this case"
+    });
+    return;
+  }
+
+  // Only case admins, org admins, and super admins can add participants
   const currentParticipant = await prisma.caseParticipant.findUnique({
     where: {
       caseId_userId: {
@@ -337,14 +349,9 @@ export async function addParticipant(req: AuthenticatedRequest, res: Response) {
     }
   });
 
-  if (!currentParticipant || currentParticipant.status !== "ACTIVE") {
-    res.status(403).json({
-      message: "You are not a participant of this case"
-    });
-    return;
-  }
+  const isPrivileged = authResult.source === "SUPER_ADMIN" || authResult.source === "ORG_ADMIN";
 
-  if (!currentParticipant.isCaseAdmin) {
+  if (!isPrivileged && (!currentParticipant || !currentParticipant.isCaseAdmin)) {
     res.status(403).json({
       message: "Only case administrators can manage participants"
     });
@@ -437,8 +444,7 @@ export async function getParticipants(
   const userId = req.userId!;
   const caseId = req.params.caseId as string;
 
-  const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+  const isSuperAdmin = await checkIsSuperAdmin(userId);
 
   if (!isSuperAdmin) {
     const participant = await prisma.caseParticipant.findUnique({
@@ -615,8 +621,7 @@ export async function resolveCaseAccessRequest(req: AuthenticatedRequest, res: R
       return;
     }
 
-    const currentUser = await prisma.user.findUnique({ where: { id: approverId } });
-    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+    const isSuperAdmin = await checkIsSuperAdmin(approverId);
 
     const approverParticipant = await prisma.caseParticipant.findUnique({
       where: { caseId_userId: { caseId: accessReq.caseId, userId: approverId } }

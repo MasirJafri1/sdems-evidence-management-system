@@ -8,11 +8,28 @@ interface CheckPermissionInput {
   permissionName: string;
 }
 
+/**
+ * Centralized case permission check.
+ *
+ * Decision tree (executed in this exact order):
+ *
+ *  1. User exists and is active?        → No  → DENY
+ *  2. systemRole === SUPER_ADMIN?        → Yes → ALLOW
+ *  3. Resolve case → case.organizationId
+ *  4. Find membership in THAT org        (userId_organizationId)
+ *  5. Is that membership's role ADMIN?   → Yes → ALLOW (ORG_ADMIN)
+ *  6. Is user active CaseParticipant?    → No  → DENY
+ *  7. Is participant isCaseAdmin?        → Yes → ALLOW
+ *  8. Explicit CasePermission?
+ *  9. Organization RolePermission?
+ * 10. DENY
+ */
 export async function checkCasePermission(
   input: CheckPermissionInput
 ): Promise<AuthorizationResult> {
   const { userId, caseId, permissionName } = input;
 
+  // --- Step 1: Validate case exists ---
   const caseRecord = await prisma.case.findUnique({
     where: {
       id: caseId
@@ -27,6 +44,7 @@ export async function checkCasePermission(
     };
   }
 
+  // --- Step 1b: Validate user exists and is active ---
   const user = await prisma.user.findUnique({
     where: {
       id: userId
@@ -41,7 +59,8 @@ export async function checkCasePermission(
     };
   }
 
-  if (user.email === "superadmin@gov.in") {
+  // --- Step 2: Super Admin check (systemRole, not email) ---
+  if ((user as any).systemRole === "SUPER_ADMIN") {
     return {
       allowed: true,
       reason: "Global Super Admin access",
@@ -49,11 +68,45 @@ export async function checkCasePermission(
     };
   }
 
-  /*
-   * User must participate in the case.
-   *
-   * This is what allows controlled cross-organization access.
-   */
+  // --- Step 3 + 4: Find membership in the case's organization ---
+  const membership = await prisma.organizationMembership.findUnique({
+    where: {
+      userId_organizationId: {
+        userId,
+        organizationId: caseRecord.organizationId
+      }
+    },
+    include: {
+      role: {
+        include: {
+          permissions: {
+            include: {
+              permission: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // --- Step 5: Org Admin gets full case access ---
+  if (membership && membership.status === "ACTIVE") {
+    const roleName = membership.role?.name || "";
+    const isOrgAdmin =
+      roleName === "ADMIN" ||
+      roleName === "Organization Admin" ||
+      roleName.toLowerCase().includes("admin");
+
+    if (isOrgAdmin) {
+      return {
+        allowed: true,
+        reason: "Organization administrator",
+        source: "ORG_ADMIN"
+      };
+    }
+  }
+
+  // --- Step 6: Check CaseParticipant ---
   const participant = await prisma.caseParticipant.findUnique({
     where: {
       caseId_userId: {
@@ -71,9 +124,7 @@ export async function checkCasePermission(
     };
   }
 
-  /*
-   * Case administrators get full case access.
-   */
+  // --- Step 7: Case administrator ---
   if (participant.isCaseAdmin) {
     return {
       allowed: true,
@@ -82,9 +133,7 @@ export async function checkCasePermission(
     };
   }
 
-  /*
-   * First check explicit case-level permissions.
-   */
+  // --- Step 8: Explicit case-level permissions ---
   const permission = await prisma.permission.findUnique({
     where: {
       name: permissionName
@@ -131,32 +180,33 @@ export async function checkCasePermission(
     }
   }
 
-  /*
-   * Now check organization-role permissions.
-   *
-   * The user's role comes from their membership
-   * in the case-owning organization OR another
-   * organization if cross-org access is configured.
-   */
-  const membership = await prisma.organizationMembership.findFirst({
-    where: {
-      userId,
-      status: "ACTIVE"
-    },
-    include: {
-      role: {
-        include: {
-          permissions: {
-            include: {
-              permission: true
+  // --- Step 9: Organization role permissions ---
+  // Use the membership we already loaded (from the case's org)
+  // If user is not in the case's org, also check their other memberships
+  let effectiveMembership = membership;
+
+  if (!effectiveMembership || effectiveMembership.status !== "ACTIVE") {
+    // User might have cross-org access via another membership
+    effectiveMembership = await prisma.organizationMembership.findFirst({
+      where: {
+        userId,
+        status: "ACTIVE"
+      },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true
+              }
             }
           }
         }
       }
-    }
-  });
+    });
+  }
 
-  if (!membership) {
+  if (!effectiveMembership) {
     return {
       allowed: false,
       reason: "No active organization membership",
@@ -164,7 +214,7 @@ export async function checkCasePermission(
     };
   }
 
-  const hasRolePermission = membership.role.permissions.some(
+  const hasRolePermission = effectiveMembership.role.permissions.some(
     (rolePermission) => rolePermission.permission.name === permissionName
   );
 
@@ -177,6 +227,7 @@ export async function checkCasePermission(
     };
   }
 
+  // --- Step 10: Deny ---
   return {
     allowed: false,
     reason: "User does not have required permission",

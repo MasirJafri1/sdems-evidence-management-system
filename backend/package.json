@@ -42,8 +42,11 @@
     "express": "^5.2.1",
     "groq-sdk": "^1.6.0",
     "jsonwebtoken": "^9.0.3",
+    "mammoth": "^1.12.3",
     "multer": "^2.2.0",
+    "pdf-parse": "^2.4.5",
     "swagger-ui-express": "^5.0.1",
+    "tesseract.js": "^7.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -2,54 +2,27 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { getCaseAuditHistory, verifyCaseAuditChain, getOrganizationAuditHistory } from "./audit.service";
+import { checkCasePermission } from "../authorization/authorization.service";
+import { isSuperAdmin } from "../authorization/authorization.context";
 
+/**
+ * Centralized case access check for audit endpoints.
+ * Replaces the inline checkCaseAccess function that had
+ * its own separate authorization logic.
+ */
 async function checkCaseAccess(userId: string, caseId: string) {
-  const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-  if (currentUser?.email === "superadmin@gov.in") {
-    const caseRecord = await prisma.case.findUnique({ where: { id: caseId } });
-    if (!caseRecord) return null;
-    return { caseRecord, participant: null };
-  }
+  const caseRecord = await prisma.case.findUnique({ where: { id: caseId } });
+  if (!caseRecord) return null;
 
-  const caseRecord = await prisma.case.findUnique({
-    where: {
-      id: caseId
-    }
+  // Use centralized auth: handles SuperAdmin → OrgAdmin → CaseParticipant
+  const result = await checkCasePermission({
+    userId,
+    caseId,
+    permissionName: "CASE_READ"
   });
 
-  if (!caseRecord) {
-    return null;
-  }
-
-  const participant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId,
-        userId
-      }
-    }
-  });
-
-  if (participant && participant.status === "ACTIVE") {
-    return {
-      caseRecord,
-      participant
-    };
-  }
-
-  const membership = await prisma.organizationMembership.findFirst({
-    where: {
-      userId,
-      organizationId: caseRecord.organizationId,
-      status: "ACTIVE"
-    }
-  });
-
-  if (membership) {
-    return {
-      caseRecord,
-      participant: null
-    };
+  if (result.allowed) {
+    return { caseRecord };
   }
 
   return null;
@@ -110,10 +83,9 @@ export async function getAuditEvents(
 ) {
   try {
     const userId = req.userId!;
-    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+    const superAdmin = await isSuperAdmin(userId);
 
-    if (isSuperAdmin) {
+    if (superAdmin) {
       const events = await getOrganizationAuditHistory(undefined);
       res.json({
         totalEvents: events.length,
@@ -194,12 +166,11 @@ export async function verifyAuditChainGeneral(
 ) {
   try {
     const userId = req.userId!;
-    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+    const superAdmin = await isSuperAdmin(userId);
     const caseId = req.query.caseId as string | undefined;
 
     if (caseId) {
-      const access = isSuperAdmin ? true : await checkCaseAccess(userId, caseId);
+      const access = superAdmin ? true : await checkCaseAccess(userId, caseId);
       if (!access) {
         res.status(403).json({ message: "Not authorized to verify this case audit chain." });
         return;
@@ -221,7 +192,7 @@ export async function verifyAuditChainGeneral(
     });
     const myCaseIds = participantCases.map((cp) => cp.caseId);
 
-    if (!isSuperAdmin && myOrgIds.length === 0 && myCaseIds.length === 0) {
+    if (!superAdmin && myOrgIds.length === 0 && myCaseIds.length === 0) {
       res.json({
         valid: true,
         totalEvents: 0,
@@ -232,7 +203,7 @@ export async function verifyAuditChainGeneral(
     }
 
     const cases = await prisma.case.findMany({
-      where: isSuperAdmin
+      where: superAdmin
         ? {}
         : {
             OR: [

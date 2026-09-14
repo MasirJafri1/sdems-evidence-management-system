@@ -1,5 +1,9 @@
 import { Router, Request, Response } from "express";
 import { esClient, SDEMS_SEARCH_INDEX, initElasticsearch } from "./elastic.client";
+import { authenticate, AuthenticatedRequest } from "../../middleware/auth";
+import { resolveUserSearchScope } from "./scope.resolver";
+import { executeScopedSearch } from "./search.service";
+import { reindexAllInElasticsearch } from "./document-indexer.service";
 
 const router = Router();
 
@@ -13,7 +17,6 @@ router.get("/health", async (_req: Request, res: Response) => {
       clusterInfo = await esClient.cluster.health();
       const rawExists: any = await esClient.indices.exists({ index: SDEMS_SEARCH_INDEX });
       indexExists = Boolean(rawExists === true || rawExists?.body === true || rawExists?.statusCode === 200 || rawExists?.status === 200);
-      console.log(`[Elasticsearch Health] rawExists:`, rawExists, `indexExists: ${indexExists}`);
     }
 
     res.json({
@@ -33,8 +36,9 @@ router.get("/health", async (_req: Request, res: Response) => {
   }
 });
 
-router.post("/init", async (_req: Request, res: Response) => {
-  const result = await initElasticsearch();
+router.post("/init", async (req: Request, res: Response) => {
+  const reset = req.body?.reset === true;
+  const result = await initElasticsearch(reset);
   if (result.connected) {
     res.json({ message: "Elasticsearch connected & initialized", ...result });
   } else {
@@ -86,11 +90,6 @@ router.post("/test-connectors", async (req: Request, res: Response) => {
   }
 });
 
-import { authenticate, AuthenticatedRequest } from "../../middleware/auth";
-import { resolveUserSearchScope } from "./scope.resolver";
-import { executeScopedSearch, indexEntityInElasticsearch } from "./search.service";
-import { prisma } from "../../lib/prisma";
-
 /**
  * GET /api/search?q=query&type=ALL|DOCUMENT|EVIDENCE&useAi=true
  * Protected by authenticate middleware. Strictly scoped to user's authorized cases.
@@ -122,6 +121,7 @@ router.get("/", authenticate, async (req: AuthenticatedRequest, res: Response) =
       scope: {
         isSuperAdmin: scope.isSuperAdmin,
         isOrgAdmin: scope.isOrgAdmin,
+        adminOrganizationIds: scope.adminOrganizationIds,
         authorizedCaseCount: scope.isSuperAdmin ? "ALL" : scope.allowedCaseIds.length
       },
       ...searchResult
@@ -149,110 +149,13 @@ router.post("/reindex", authenticate, async (req: AuthenticatedRequest, res: Res
   }
 
   try {
-    // 1. Sync Documents (including in-file text extraction from S3 storage if available)
-    const docs = await prisma.document.findMany({
-      include: {
-        case: true,
-        versions: {
-          orderBy: { versionNumber: "desc" },
-          take: 1,
-          include: {
-            uploadedBy: { select: { name: true } }
-          }
-        }
-      }
-    });
-
-    const { extractTextFromFile } = await import("./extractor.service.js");
-    const { s3 } = await import("../../lib/s3.js");
-    const { GetObjectCommand } = await import("@aws-sdk/client-s3");
-
-    let indexedDocsCount = 0;
-    for (const doc of docs) {
-      const latestVer = doc.versions[0];
-      let inDocText = "";
-
-      if (latestVer?.storageBucket && latestVer?.storageKey) {
-        try {
-          const s3Obj = await s3.send(
-            new GetObjectCommand({
-              Bucket: latestVer.storageBucket,
-              Key: latestVer.storageKey
-            })
-          );
-          if (s3Obj.Body) {
-            const byteArray = await s3Obj.Body.transformToByteArray();
-            const buffer = Buffer.from(byteArray);
-            inDocText = await extractTextFromFile(buffer, latestVer.mimeType, latestVer.originalFileName);
-          }
-        } catch (s3Err: any) {
-          console.warn(`[Reindex] Could not fetch file body from storage for doc ${doc.id}:`, s3Err.message);
-        }
-      }
-
-      const fullContent = [doc.title, doc.description || "", inDocText].filter(Boolean).join("\n\n");
-
-      await indexEntityInElasticsearch({
-        id: doc.id,
-        entityType: "DOCUMENT",
-        title: doc.title,
-        content: fullContent,
-        summary: doc.description || undefined,
-        caseId: doc.caseId,
-        caseNumber: doc.case.caseNumber,
-        organizationId: doc.case.organizationId,
-        documentType: doc.documentType || undefined,
-        versionNumber: latestVer?.versionNumber || 1,
-        sha256Hash: latestVer?.sha256Hash || undefined,
-        status: doc.status,
-        uploadedBy: latestVer?.uploadedBy?.name || "Officer",
-        createdAt: doc.createdAt
-      });
-      indexedDocsCount++;
-    }
-
-    // 2. Sync Evidence Items
-    const evidences = await prisma.evidence.findMany({
-      include: {
-        case: true,
-        documentVersion: {
-          select: {
-            sha256Hash: true
-          }
-        },
-        currentCustodian: {
-          select: {
-            name: true
-          }
-        }
-      }
-    });
-
-    let indexedEvidenceCount = 0;
-    for (const ev of evidences) {
-      await indexEntityInElasticsearch({
-        id: ev.id,
-        entityType: "EVIDENCE",
-        title: ev.title,
-        content: `${ev.description || ""} Evidence No: ${ev.evidenceNumber}`,
-        caseId: ev.caseId,
-        caseNumber: ev.case.caseNumber,
-        organizationId: ev.case.organizationId,
-        serialNumber: ev.evidenceNumber,
-        evidenceType: "EXHIBIT",
-        sha256Hash: ev.documentVersion?.sha256Hash || undefined,
-        status: ev.status,
-        uploadedBy: ev.currentCustodian?.name || "Custodian",
-        createdAt: ev.createdAt
-      });
-      indexedEvidenceCount++;
-    }
+    const { documentsIndexed, evidenceIndexed } = await reindexAllInElasticsearch();
 
     res.json({
       success: true,
-      message: `Successfully re-indexed ${indexedDocsCount} documents and ${indexedEvidenceCount} evidence items.`,
-      indexedDocsCount,
-      indexedEvidenceCount
+      message: `Successfully re-indexed ${documentsIndexed} documents and ${evidenceIndexed} evidence items.`,
+      indexedDocsCount: documentsIndexed,
+      indexedEvidenceCount: evidenceIndexed
     });
   } catch (err: any) {
     res.status(500).json({

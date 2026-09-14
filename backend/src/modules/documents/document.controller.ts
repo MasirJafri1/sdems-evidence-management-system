@@ -12,63 +12,12 @@ import { createDocumentSchema } from "./document.schema";
 import { anchorDocumentVersion } from "../blockchain/blockchain.service";
 import { createAuditEvent } from "../audit/audit.service";
 import { checkCasePermission } from "../authorization/authorization.service";
+import { isSuperAdmin } from "../authorization/authorization.context";
+import { indexDocumentById } from "../search/document-indexer.service";
 
 async function verifyPermission(userId: string, caseId: string, permissionName: string): Promise<boolean> {
   const result = await checkCasePermission({ userId, caseId, permissionName });
   return result.allowed;
-}
-
-async function getCaseMembership(userId: string, caseId: string) {
-  const caseRecord = await prisma.case.findUnique({
-    where: {
-      id: caseId
-    }
-  });
-
-  if (!caseRecord) {
-    return null;
-  }
-
-  const participant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId,
-        userId
-      }
-    }
-  });
-
-  if (!participant || participant.status !== "ACTIVE") {
-    return null;
-  }
-
-  const membership = await prisma.organizationMembership.findFirst({
-    where: {
-      userId,
-      status: "ACTIVE"
-    },
-    include: {
-      role: {
-        include: {
-          permissions: {
-            include: {
-              permission: true
-            }
-          }
-        }
-      }
-    }
-  });
-
-  if (!membership) {
-    return null;
-  }
-
-  return {
-    caseRecord,
-    participant,
-    membership
-  };
 }
 
 /**
@@ -86,18 +35,9 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  const access = await getCaseMembership(userId, caseId);
-
-  if (!access) {
-    res.status(403).json({
-      message: "You are not authorized to access this case"
-    });
-    return;
-  }
-
   if (!(await verifyPermission(userId, caseId, "DOCUMENT_CREATE"))) {
     res.status(403).json({
-      message: "Missing DOCUMENT_CREATE permission"
+      message: "You are not authorized to create documents in this case"
     });
     return;
   }
@@ -195,6 +135,11 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
       console.error("Blockchain anchoring failed:", error);
     }
 
+    // Index in Elasticsearch (non-blocking)
+    indexDocumentById(document.id).catch((err) =>
+      console.warn("[ES] Background indexing failed for new document:", err.message)
+    );
+
     await createAuditEvent({
       caseId,
       actorId: userId,
@@ -257,18 +202,9 @@ export async function listDocuments(req: AuthenticatedRequest, res: Response) {
   const userId = req.userId!;
   const caseId = req.params.caseId as string;
 
-  const access = await getCaseMembership(userId, caseId);
-
-  if (!access) {
-    res.status(403).json({
-      message: "You are not authorized to access this case"
-    });
-    return;
-  }
-
   if (!(await verifyPermission(userId, caseId, "DOCUMENT_READ"))) {
     res.status(403).json({
-      message: "Missing DOCUMENT_READ permission"
+      message: "You are not authorized to access this case"
     });
     return;
   }
@@ -327,19 +263,20 @@ export async function listDocuments(req: AuthenticatedRequest, res: Response) {
 export async function listOrganizationDocuments(req: AuthenticatedRequest, res: Response) {
   try {
     const userId = req.userId!;
-    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-    const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+    const superAdmin = await isSuperAdmin(userId);
 
-    const membership = await prisma.organizationMembership.findFirst({
+    // Get ALL active memberships (not just the first)
+    const memberships = await prisma.organizationMembership.findMany({
       where: { userId, status: "ACTIVE" }
     });
+    const memberOrgIds = memberships.map((m) => m.organizationId);
 
     const documents = await prisma.document.findMany({
       where: {
-        ...(isSuperAdmin
+        ...(superAdmin
           ? {}
-          : membership
-            ? { case: { organizationId: membership.organizationId } }
+          : memberOrgIds.length > 0
+            ? { case: { organizationId: { in: memberOrgIds } } }
             : { case: { participants: { some: { userId, status: "ACTIVE" } } } }),
         status: { not: "DELETED" }
       },
@@ -423,9 +360,7 @@ export async function getDocument(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  const access = await getCaseMembership(userId, document.caseId);
-
-  if (!access) {
+  if (!(await verifyPermission(userId, document.caseId, "DOCUMENT_READ"))) {
     await createAuditEvent({
       caseId: document.caseId,
       actorId: userId,
@@ -433,7 +368,7 @@ export async function getDocument(req: AuthenticatedRequest, res: Response) {
       entityType: "Document",
       entityId: document.id,
       metadata: {
-        reason: "User is not an active case participant",
+        reason: "User does not have DOCUMENT_READ permission",
         endpoint: req.originalUrl,
         method: req.method
       },
@@ -443,13 +378,6 @@ export async function getDocument(req: AuthenticatedRequest, res: Response) {
 
     res.status(403).json({
       message: "You are not authorized to access this document"
-    });
-    return;
-  }
-
-  if (!(await verifyPermission(userId, document.caseId, "DOCUMENT_READ"))) {
-    res.status(403).json({
-      message: "Missing DOCUMENT_READ permission"
     });
     return;
   }
@@ -503,15 +431,6 @@ export async function downloadDocument(
   if (!document) {
     res.status(404).json({
       message: "Document not found"
-    });
-    return;
-  }
-
-  const access = await getCaseMembership(userId, document.caseId);
-
-  if (!access) {
-    res.status(403).json({
-      message: "You are not authorized to access this document"
     });
     return;
   }
@@ -644,18 +563,9 @@ export async function createDocumentVersion(
     return;
   }
 
-  const access = await getCaseMembership(userId, document.caseId);
-
-  if (!access) {
-    res.status(403).json({
-      message: "You are not authorized to modify this document"
-    });
-    return;
-  }
-
   if (!(await verifyPermission(userId, document.caseId, "DOCUMENT_VERSION_CREATE"))) {
     res.status(403).json({
-      message: "Missing DOCUMENT_VERSION_CREATE permission"
+      message: "You are not authorized to modify this document"
     });
     return;
   }
@@ -749,6 +659,11 @@ export async function createDocumentVersion(
     } catch (error) {
       console.error("Blockchain anchoring failed:", error);
     }
+
+    // Re-index in Elasticsearch with new version content (non-blocking)
+    indexDocumentById(document.id).catch((err) =>
+      console.warn("[ES] Background indexing failed for new version:", err.message)
+    );
 
     await createAuditEvent({
       caseId: document.caseId,

@@ -1,0 +1,8 @@
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "neondb", schema "public" at "ep-bold-mode-azhmfyx2-pooler.c-3.ap-southeast-1.aws.neon.tech"
+
+Error: Schema engine exited. Error: Command failed with exit code 3221225477: D:\Project_masir\sih_ps1\backend\node_modules\@prisma\engines\schema-engine-windows.exe cli --datasource <REDACTED> can-connect-to-database

@@ -3,6 +3,8 @@ import { AuthenticatedRequest } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
 import { createAuditEvent } from "../audit/audit.service";
 import { createEvidence } from "./evidence.service";
+import { checkCasePermission } from "../authorization/authorization.service";
+import { isSuperAdmin } from "../authorization/authorization.context";
 import {
   createCustodyTransfer,
   acceptCustodyTransfer,
@@ -11,6 +13,7 @@ import {
   verifyCustodyHistory,
   getTransfersForUser
 } from "./custody.service";
+import { indexEvidenceById } from "../search/document-indexer.service";
 
 function serializeEvidence(evidence: any) {
   if (!evidence) return null;
@@ -23,6 +26,20 @@ function serializeEvidence(evidence: any) {
       }
       : undefined
   };
+}
+
+/**
+ * Centralized case access check for evidence endpoints.
+ * Replaces inline caseParticipant.findUnique checks that
+ * previously blocked Org Admins.
+ */
+async function verifyEvidenceCaseAccess(userId: string, caseId: string): Promise<boolean> {
+  const result = await checkCasePermission({
+    userId,
+    caseId,
+    permissionName: "EVIDENCE_READ"
+  });
+  return result.allowed;
 }
 
 export async function createEvidenceController(
@@ -62,6 +79,11 @@ export async function createEvidenceController(
       ipAddress: req.ip,
       userAgent: req.get("user-agent") ?? undefined
     });
+
+    // Auto-index in Elasticsearch (non-blocking)
+    indexEvidenceById(evidence.id).catch((err) =>
+      console.warn("[ES] Background indexing failed for new evidence item:", err.message)
+    );
 
     res.status(201).json({
       evidence: serializeEvidence(evidence)
@@ -119,18 +141,10 @@ export async function getEvidence(
     return;
   }
 
-  const participant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId: evidence.caseId,
-        userId
-      }
-    }
-  });
-
-  if (!participant || participant.status !== "ACTIVE") {
+  // Use centralized auth (handles SuperAdmin + OrgAdmin + CaseParticipant)
+  if (!(await verifyEvidenceCaseAccess(userId, evidence.caseId))) {
     res.status(403).json({
-      message: "You are not a participant of this case"
+      message: "You are not authorized to access this evidence"
     });
     return;
   }
@@ -349,18 +363,10 @@ export async function custodyHistory(
     return;
   }
 
-  const participant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId: evidence.caseId,
-        userId
-      }
-    }
-  });
-
-  if (!participant || participant.status !== "ACTIVE") {
+  // Use centralized auth instead of inline participant check
+  if (!(await verifyEvidenceCaseAccess(userId, evidence.caseId))) {
     res.status(403).json({
-      message: "You are not a participant of this case"
+      message: "You are not authorized to view this evidence's custody history"
     });
     return;
   }
@@ -399,18 +405,10 @@ export async function verifyCustodyHistoryController(
     return;
   }
 
-  const participant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId: evidence.caseId,
-        userId
-      }
-    }
-  });
-
-  if (!participant || participant.status !== "ACTIVE") {
+  // Use centralized auth instead of inline participant check
+  if (!(await verifyEvidenceCaseAccess(userId, evidence.caseId))) {
     res.status(403).json({
-      message: "You are not a participant of this case"
+      message: "You are not authorized to verify this evidence"
     });
     return;
   }
@@ -430,18 +428,10 @@ export async function listCaseEvidenceController(
   const userId = req.userId!;
   const caseId = req.params.caseId as string;
 
-  const participant = await prisma.caseParticipant.findUnique({
-    where: {
-      caseId_userId: {
-        caseId,
-        userId
-      }
-    }
-  });
-
-  if (!participant || participant.status !== "ACTIVE") {
+  // Use centralized auth instead of inline participant check
+  if (!(await verifyEvidenceCaseAccess(userId, caseId))) {
     res.status(403).json({
-      message: "You are not an active participant of this case"
+      message: "You are not authorized to view evidence for this case"
     });
     return;
   }
@@ -481,24 +471,30 @@ export async function listOrganizationEvidenceController(
 ) {
   const userId = req.userId!;
 
-  const membership = await prisma.organizationMembership.findFirst({
+  const superAdmin = await isSuperAdmin(userId);
+
+  // Get ALL active memberships (not just findFirst)
+  const memberships = await prisma.organizationMembership.findMany({
     where: {
       userId,
       status: "ACTIVE"
     }
   });
+  const memberOrgIds = memberships.map((m) => m.organizationId);
 
-  if (!membership) {
+  if (!superAdmin && memberOrgIds.length === 0) {
     res.json([]);
     return;
   }
 
   const items = await prisma.evidence.findMany({
-    where: {
-      case: {
-        organizationId: membership.organizationId
-      }
-    },
+    where: superAdmin
+      ? {}
+      : {
+          case: {
+            organizationId: { in: memberOrgIds }
+          }
+        },
     include: {
       case: {
         select: {
@@ -536,14 +532,11 @@ export async function listMyTransfersController(
   res: Response
 ) {
   try {
-    const isSuperAdmin = req.userId
-      ? (await prisma.user.findUnique({ where: { id: req.userId } }))?.email === "superadmin@gov.in"
-      : false;
-    const transfers = await getTransfersForUser(req.userId!, isSuperAdmin);
+    const superAdmin = await isSuperAdmin(req.userId!);
+    const transfers = await getTransfersForUser(req.userId!, superAdmin);
     res.json(transfers);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch transfers";
     res.status(500).json({ message });
   }
 }
-

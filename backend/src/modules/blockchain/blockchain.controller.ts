@@ -7,6 +7,7 @@ import {
   getBlockchainStatus
 } from "./blockchain.service";
 import { createAuditEvent } from "../audit/audit.service";
+import { isSuperAdmin as checkIsSuperAdmin } from "../authorization/authorization.context";
 
 export async function verifyVersion(req: AuthenticatedRequest, res: Response) {
   const userId = req.userId!;
@@ -54,8 +55,7 @@ export async function verifyVersion(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  const currentUser = await prisma.user.findUnique({ where: { id: userId } });
-  const isSuperAdmin = currentUser?.email === "superadmin@gov.in";
+  const isSuperAdmin = await checkIsSuperAdmin(userId);
 
   const participant = await prisma.caseParticipant.findFirst({
     where: {
