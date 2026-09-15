@@ -14,7 +14,6 @@ import {
   Building,
 } from 'lucide-react';
 import { ROUTES } from '../../config/routes.config';
-import { ENV } from '../../config/env.config';
 
 import { useAppSelector } from '../../store';
 
@@ -25,7 +24,6 @@ export const Sidebar: React.FC = () => {
   const activeOrgName = user?.isSuperAdmin || !user?.organizationId
     ? 'National Evidence Governance Board'
     : 'Registered Government Agency';
-
 
   const mainNav = [
     { label: 'Overview', path: ROUTES.PROTECTED.DASHBOARD, icon: LayoutDashboard },
@@ -43,31 +41,9 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-60 bg-white text-slate-900 flex flex-col justify-between shrink-0 min-h-screen border-r border-slate-200 shadow-xs font-sans">
-      <div>
-        <div className="p-4 border-b border-slate-200 bg-slate-50">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-md bg-slate-900 font-black text-white flex items-center justify-center text-xs tracking-wider shrink-0 shadow-xs border border-slate-800">
-              GOV
-            </div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-base font-black text-slate-900 tracking-tight leading-none font-heading">
-                {ENV.APP_NAME}
-              </h1>
-              <p className="text-[10px] font-medium text-slate-600 leading-tight mt-1">
-                {ENV.FULL_NAME}
-              </p>
-            </div>
-          </div>
-          <div className="mt-2.5 pt-2 border-t border-slate-200 text-[11px] text-slate-500 italic">
-            "{ENV.TAGLINE}"
-          </div>
-        </div>
-
-        <nav className="p-3 space-y-0.5">
-          <div className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-            System Operations
-          </div>
+    <aside className="w-60 bg-[#F6F8FB] text-[#17212B] flex flex-col justify-between shrink-0 border-r border-[#DCE3EA] shadow-2xs font-sans">
+      <div className="py-2">
+        <nav className="p-2 space-y-0.5">
           {mainNav.map((item) => {
             const Icon = item.icon;
             return (
@@ -75,16 +51,19 @@ export const Sidebar: React.FC = () => {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded text-xs font-semibold transition-colors ${
+                  `relative flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors ${
                     isActive
-                      ? 'bg-slate-900 text-white font-bold shadow-xs'
-                      : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                      ? 'bg-[#EBF3FA] text-[#123B63] font-bold'
+                      : 'text-[#5B6875] hover:bg-white hover:text-[#123B63] font-medium'
                   }`
                 }
               >
                 {({ isActive }) => (
                   <>
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                    {isActive && (
+                      <span className="absolute left-0 top-1 bottom-1 w-1 bg-[#123B63] rounded-r-md" />
+                    )}
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#123B63]' : 'text-[#5B6875]'}`} />
                     <span>{item.label}</span>
                   </>
                 )}
@@ -94,14 +73,16 @@ export const Sidebar: React.FC = () => {
         </nav>
       </div>
 
-      <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-2 text-[11px] text-slate-600">
+      <div className="p-3.5 border-t border-[#DCE3EA] bg-white space-y-1.5 text-[11px] text-[#5B6875]">
         <div className="flex items-center gap-2">
-          <Building className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-          <span className="font-semibold text-slate-800 truncate">{activeOrgName}</span>
+          <Building className="w-3.5 h-3.5 text-[#2F6B95] shrink-0" />
+          <span className="font-bold text-[#123B63] truncate">{activeOrgName}</span>
         </div>
-        <div className="flex items-center justify-between text-[10px]">
+        <div className="flex items-center justify-between text-[10px] font-semibold">
           <span>Security Status:</span>
-          <span className="text-emerald-700 font-bold uppercase">COMPLIANT</span>
+          <span className="text-[#18794E] uppercase bg-[#E6F4ED] px-1.5 py-0.5 rounded border border-[#B2DDCE]">
+            COMPLIANT
+          </span>
         </div>
       </div>
     </aside>

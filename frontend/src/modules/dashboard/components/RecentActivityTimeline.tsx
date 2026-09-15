@@ -49,21 +49,21 @@ export const RecentActivityTimeline: React.FC = () => {
 
   return (
     <Card title="RECENT SYSTEM ACTIVITY" subtitle="Real-time log of official evidence actions">
-      <div className="space-y-3 divide-y divide-slate-100">
+      <div className="space-y-3 divide-y divide-[#DCE3EA]">
         {realActivities.map((act, idx) => {
           const Icon = act.icon;
           return (
             <div key={idx} className="pt-2.5 first:pt-0 flex items-start gap-3 text-xs">
-              <div className="p-1.5 rounded bg-slate-100 text-slate-700 mt-0.5 shrink-0">
+              <div className="p-1.5 rounded-md bg-[#EBF3FA] border border-[#B8D3EA] text-[#123B63] mt-0.5 shrink-0">
                 <Icon className="w-3.5 h-3.5" />
               </div>
               <div className="flex-1 space-y-0.5 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 truncate">{act.type}</span>
-                  <span className="text-[11px] text-slate-400 font-mono shrink-0 ml-2">{act.time}</span>
+                  <span className="font-bold text-[#123B63] truncate">{act.type}</span>
+                  <span className="text-[11px] text-[#5B6875] font-mono shrink-0 ml-2">{act.time}</span>
                 </div>
-                <p className="text-slate-600 truncate">{act.text}</p>
-                <div className="text-[11px] text-slate-500 font-medium">By: {act.actor}</div>
+                <p className="text-[#17212B] truncate">{act.text}</p>
+                <div className="text-[11px] text-[#5B6875] font-medium">By: {act.actor}</div>
               </div>
             </div>
           );

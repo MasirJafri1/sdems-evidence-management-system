@@ -164,15 +164,21 @@ export const AccessRequestsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DCE3EA] pb-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading flex items-center gap-2">
-            <ShieldAlert className="w-7 h-7 text-indigo-600" />
-            Cross-Agency Case Access Requests
-          </h1>
-          <p className="text-xs text-slate-600 mt-1">
-            Manage zero-trust permission delegation, inter-departmental requests, and multi-tenant access authorizations.
-          </p>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-[#123B63]/5 rounded-md border border-[#123B63]/10">
+              <ShieldAlert className="w-5 h-5 text-[#123B63]" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black text-[#17212B] tracking-tight font-heading">
+                Cross-Agency Case Access Requests
+              </h1>
+              <p className="text-xs text-[#5B6875] mt-0.5">
+                Manage zero-trust permission delegation, inter-departmental requests, and multi-tenant access authorizations.
+              </p>
+            </div>
+          </div>
         </div>
 
         <Button
@@ -186,65 +192,65 @@ export const AccessRequestsPage: React.FC = () => {
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-        <div className="p-4 rounded border border-slate-200 bg-white shadow-xs border-l-4 border-l-amber-500">
-          <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Pending Inbound Approval</div>
-          <div className="text-xl font-bold text-slate-900 font-mono mt-1">
+        <div className="p-4 rounded-md border border-[#DCE3EA] bg-white shadow-xs border-l-4 border-l-[#A66A00]">
+          <div className="font-bold text-[#5B6875] uppercase tracking-wider text-[10px]">Pending Inbound Approval</div>
+          <div className="text-xl font-bold text-[#17212B] font-mono mt-1">
             {requests.filter((r) => r.status === 'PENDING' && r.userId !== user?.id).length} Requests
           </div>
-          <div className="text-slate-500 mt-1 font-medium">Awaiting Custodian Verification</div>
+          <div className="text-[#5B6875] mt-1 font-medium">Awaiting Custodian Verification</div>
         </div>
 
-        <div className="p-4 rounded border border-slate-200 bg-white shadow-xs border-l-4 border-l-emerald-600">
-          <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Approved Authorizations</div>
-          <div className="text-xl font-bold text-slate-900 font-mono mt-1">
+        <div className="p-4 rounded-md border border-[#DCE3EA] bg-white shadow-xs border-l-4 border-l-[#18794E]">
+          <div className="font-bold text-[#5B6875] uppercase tracking-wider text-[10px]">Approved Authorizations</div>
+          <div className="text-xl font-bold text-[#17212B] font-mono mt-1">
             {requests.filter((r) => r.status === 'APPROVED').length} Active
           </div>
-          <div className="text-slate-500 mt-1 font-medium">Cross-Org Access Active</div>
+          <div className="text-[#5B6875] mt-1 font-medium">Cross-Org Access Active</div>
         </div>
 
-        <div className="p-4 rounded border border-slate-200 bg-white shadow-xs border-l-4 border-l-indigo-600">
-          <div className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Your Outbound Requests</div>
-          <div className="text-xl font-bold text-slate-900 font-mono mt-1">
+        <div className="p-4 rounded-md border border-[#DCE3EA] bg-white shadow-xs border-l-4 border-l-[#123B63]">
+          <div className="font-bold text-[#5B6875] uppercase tracking-wider text-[10px]">Your Outbound Requests</div>
+          <div className="text-xl font-bold text-[#17212B] font-mono mt-1">
             {requests.filter((r) => r.userId === user?.id).length} Submitted
           </div>
-          <div className="text-slate-500 mt-1 font-medium">Tracking Status Across Agencies</div>
+          <div className="text-[#5B6875] mt-1 font-medium">Tracking Status Across Agencies</div>
         </div>
       </div>
 
       {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md w-full">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#5B6875]" />
           <input
             type="text"
             placeholder="Search requests by Case ID, Agency, or Title..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-xs border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+            className="w-full pl-9 pr-4 py-2 text-xs border border-[#DCE3EA] rounded-md focus:outline-none focus:ring-1 focus:ring-[#123B63] bg-white"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 self-start sm:self-auto text-xs bg-slate-100 p-1 rounded-md">
+        <div className="flex items-center gap-1.5 self-start sm:self-auto text-xs bg-[#F6F8FB] p-1 rounded-md border border-[#DCE3EA]">
           <button
             onClick={() => setFilterMode('ALL')}
-            className={`px-3 py-1 rounded font-semibold transition-colors ${
-              filterMode === 'ALL' ? 'bg-white shadow-xs text-slate-900' : 'text-slate-600 hover:text-slate-900'
+            className={`px-3 py-1 rounded-md font-semibold transition-colors ${
+              filterMode === 'ALL' ? 'bg-white shadow-xs text-[#123B63]' : 'text-[#5B6875] hover:text-[#17212B]'
             }`}
           >
             All ({requests.length})
           </button>
           <button
             onClick={() => setFilterMode('INBOUND')}
-            className={`px-3 py-1 rounded font-semibold transition-colors ${
-              filterMode === 'INBOUND' ? 'bg-white shadow-xs text-indigo-700' : 'text-slate-600 hover:text-slate-900'
+            className={`px-3 py-1 rounded-md font-semibold transition-colors ${
+              filterMode === 'INBOUND' ? 'bg-white shadow-xs text-[#123B63]' : 'text-[#5B6875] hover:text-[#17212B]'
             }`}
           >
             Inbound ({requests.filter((r) => r.userId !== user?.id).length})
           </button>
           <button
             onClick={() => setFilterMode('OUTBOUND')}
-            className={`px-3 py-1 rounded font-semibold transition-colors ${
-              filterMode === 'OUTBOUND' ? 'bg-white shadow-xs text-slate-900' : 'text-slate-600 hover:text-slate-900'
+            className={`px-3 py-1 rounded-md font-semibold transition-colors ${
+              filterMode === 'OUTBOUND' ? 'bg-white shadow-xs text-[#123B63]' : 'text-[#5B6875] hover:text-[#17212B]'
             }`}
           >
             Outbound ({requests.filter((r) => r.userId === user?.id).length})
@@ -253,10 +259,10 @@ export const AccessRequestsPage: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto border border-slate-200 rounded">
+      <div className="overflow-x-auto border border-[#DCE3EA] rounded-md bg-white">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider">
+            <tr className="border-b border-[#DCE3EA] bg-[#F6F8FB] text-[#123B63] font-bold uppercase tracking-wider text-[11px]">
               <th className="p-3">Scope</th>
               <th className="p-3">Case Info & ID</th>
               <th className="p-3">Requesting Officer & Agency</th>
@@ -266,19 +272,19 @@ export const AccessRequestsPage: React.FC = () => {
               <th className="p-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 font-medium bg-white">
+          <tbody className="divide-y divide-[#DCE3EA] font-medium bg-white">
             {isLoading ? (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-slate-500">
+                <td colSpan={7} className="p-6 text-center text-[#5B6875]">
                   <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                    <Loader2 className="w-4 h-4 animate-spin text-[#5B6875]" />
                     <span>Loading database access requests...</span>
                   </div>
                 </td>
               </tr>
             ) : filteredRequests.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-slate-500 italic">
+                <td colSpan={7} className="p-6 text-center text-[#5B6875] italic">
                   No access requests found.
                 </td>
               </tr>
@@ -288,40 +294,40 @@ export const AccessRequestsPage: React.FC = () => {
                 const canManage = isInbound && req.status === 'PENDING';
 
                 return (
-                  <tr key={req.id} className="hover:bg-slate-50">
+                  <tr key={req.id} className="hover:bg-[#F6F8FB]">
                     <td className="p-3">
                       {isInbound ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                          <ArrowDownLeft className="w-3 h-3 text-amber-600" /> INBOUND
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#A66A00]/10 text-[#A66A00] border border-[#A66A00]/30">
+                          <ArrowDownLeft className="w-3 h-3 text-[#A66A00]" /> INBOUND
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                          <ArrowUpRight className="w-3 h-3 text-blue-600" /> OUTBOUND
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#2F6B95]/10 text-[#2F6B95] border border-[#2F6B95]/30">
+                          <ArrowUpRight className="w-3 h-3 text-[#2F6B95]" /> OUTBOUND
                         </span>
                       )}
                     </td>
                     <td className="p-3 space-y-0.5">
-                      <div className="font-bold text-slate-900">{req.case?.title || 'Case Record'}</div>
-                      <div className="font-mono text-[11px] text-slate-500">{req.case?.caseNumber || req.caseId}</div>
+                      <div className="font-bold text-[#17212B]">{req.case?.title || 'Case Record'}</div>
+                      <div className="font-mono text-[11px] text-[#5B6875]">{req.case?.caseNumber || req.caseId}</div>
                     </td>
                     <td className="p-3">
-                      <div className="font-semibold text-slate-800">
+                      <div className="font-semibold text-[#17212B]">
                         {req.user?.memberships?.[0]?.organization?.name ||
                           (req.user?.email === 'superadmin@gov.in'
                             ? 'Government of India (Super Admin)'
                             : '⚡ Standalone Officer (No Agency)')}
                       </div>
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-[11px] text-[#5B6875]">
                         {req.user?.name} ({req.user?.email})
                       </div>
                     </td>
-                    <td className="p-3 font-semibold text-slate-700">
+                    <td className="p-3 font-semibold text-[#17212B]">
                       <div className="flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                        <Building2 className="w-3.5 h-3.5 text-[#5B6875]" />
                         {req.case?.organization?.name || 'Target Agency'}
                       </div>
                     </td>
-                    <td className="p-3 text-slate-600 max-w-xs truncate italic" title={req.reason || ''}>
+                    <td className="p-3 text-[#5B6875] max-w-xs truncate italic" title={req.reason || ''}>
                       {req.reason || 'No justification provided'}
                     </td>
                     <td className="p-3">
@@ -345,7 +351,7 @@ export const AccessRequestsPage: React.FC = () => {
                             size="sm"
                             variant="outline"
                             onClick={() => handleRespond(req.id, 'REJECT')}
-                            leftIcon={<XCircle className="w-3.5 h-3.5 text-rose-600" />}
+                            leftIcon={<XCircle className="w-3.5 h-3.5 text-[#B42318]" />}
                           >
                             Deny
                           </Button>
@@ -353,13 +359,13 @@ export const AccessRequestsPage: React.FC = () => {
                             size="sm"
                             variant="primary"
                             onClick={() => handleRespond(req.id, 'APPROVE')}
-                            leftIcon={<CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                            leftIcon={<CheckCircle2 className="w-3.5 h-3.5 text-[#18794E]" />}
                           >
                             Grant Access
                           </Button>
                         </div>
                       ) : (
-                        <span className="text-[11px] text-slate-400 font-mono">
+                        <span className="text-[11px] text-[#5B6875] font-mono">
                           <Clock className="w-3 h-3 inline mr-1" />
                           {req.status === 'PENDING' ? 'Awaiting Custodian' : 'Decided'}
                         </span>
@@ -392,11 +398,11 @@ export const AccessRequestsPage: React.FC = () => {
             {targetCaseId && (
               <div className="mt-1 flex items-center gap-1 text-[10px]">
                 {isVerifying ? (
-                  <><Loader2 className="w-3 h-3 animate-spin text-slate-400" /> <span className="text-slate-500">Verifying case ID in central registry...</span></>
+                  <><Loader2 className="w-3 h-3 animate-spin text-[#5B6875]" /> <span className="text-[#5B6875]">Verifying case ID in central registry...</span></>
                 ) : isValidCase ? (
-                  <><CheckCircle2 className="w-3 h-3 text-emerald-500" /> <span className="text-emerald-600 font-medium">Case found: {verifiedCaseTitle}</span></>
+                  <><CheckCircle2 className="w-3 h-3 text-[#18794E]" /> <span className="text-[#18794E] font-medium">Case found: {verifiedCaseTitle}</span></>
                 ) : (
-                  <><XCircle className="w-3 h-3 text-rose-500" /> <span className="text-rose-600 font-medium">Case number not recognized</span></>
+                  <><XCircle className="w-3 h-3 text-[#B42318]" /> <span className="text-[#B42318] font-medium">Case number not recognized</span></>
                 )}
               </div>
             )}
@@ -410,20 +416,20 @@ export const AccessRequestsPage: React.FC = () => {
           />
 
           <div>
-            <label className="block text-slate-700 font-semibold mb-1">
-              Official Justification / Legal Request Reason <span className="text-rose-500">*</span>
+            <label className="block text-[#17212B] font-semibold mb-1 uppercase tracking-wider text-[11px]">
+              Official Justification / Legal Request Reason <span className="text-[#B42318]">*</span>
             </label>
             <textarea
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="State statutory mandate (e.g. Joint investigation under PMLA Sec 54 or CrPC Sec 91)..."
-              className="w-full px-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 text-xs border border-[#DCE3EA] rounded-md focus:outline-none focus:ring-1 focus:ring-[#123B63] bg-white text-[#17212B]"
               required
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+          <div className="flex justify-end gap-3 pt-3 border-t border-[#DCE3EA]">
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>

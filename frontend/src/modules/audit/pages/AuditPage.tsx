@@ -3,7 +3,7 @@ import { type MockAuditEvent } from '../../../mock/audit.mock';
 import { AuditIntegrityPanel } from '../components/AuditIntegrityPanel';
 import { AuditTable } from '../components/AuditTable';
 import { Input } from '../../../components/ui/Input';
-import { History, Search, Loader2 } from 'lucide-react';
+import { History, Search } from 'lucide-react';
 import { useAppSelector } from '../../../store';
 import { getGlobalAuditHistoryApi, verifyGlobalAuditChainApi } from '../api/audit.api';
 import { useToast } from '../../../components/feedback/useToast';
@@ -84,12 +84,12 @@ export const AuditPage: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading flex items-center gap-2">
-          <History className="w-7 h-7 text-slate-900" />
+      <div className="border-b border-[#DCE3EA] pb-4">
+        <h1 className="text-xl font-extrabold text-[#123B63] tracking-tight flex items-center gap-2">
+          <History className="w-6 h-6 text-[#123B63]" />
           Append-Only Cryptographic Audit Explorer
         </h1>
-        <p className="text-xs text-slate-600 mt-0.5">
+        <p className="text-xs text-[#5B6875] mt-0.5">
           Sequential SHA-256 hash-linked audit log guaranteeing non-repudiation across all departmental cases.
         </p>
       </div>
@@ -100,25 +100,18 @@ export const AuditPage: React.FC = () => {
         isVerifying={isVerifying}
       />
 
-      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded border border-slate-200">
-        <div className="w-full max-w-sm">
+      <div className="flex items-center gap-3 bg-white p-3 rounded-md border border-[#DCE3EA] shadow-2xs">
+        <div className="w-full max-w-md">
           <Input
-            placeholder="Search audit event type, actor, case ID, event hash..."
-            leftIcon={<Search className="w-4 h-4 text-slate-400" />}
+            placeholder="Search event type, officer email, case ID, SHA-256 hash..."
+            leftIcon={<Search className="w-4 h-4 text-[#5B6875]" />}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="py-12 text-center text-slate-500">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400 mb-2" />
-          <p className="text-xs">Reading immutable ledger from database...</p>
-        </div>
-      ) : (
-        <AuditTable events={filtered} />
-      )}
+      <AuditTable events={filtered} isLoading={isLoading} />
     </div>
   );
 };

@@ -15,24 +15,24 @@ export const AuditIntegrityPanel: React.FC<AuditIntegrityPanelProps> = ({
   isVerifying,
 }) => {
   return (
-    <div className="p-4 rounded border border-emerald-300 bg-emerald-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+    <div className="p-4 rounded-md border border-[#B2DDCE] bg-[#E6F4ED] flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs shadow-2xs">
       <div className="flex items-center gap-3">
-        <div className="p-2 rounded bg-emerald-100 text-emerald-800">
-          <ShieldCheck className="w-6 h-6" />
+        <div className="p-2 rounded-md bg-white border border-[#B2DDCE] text-[#18794E]">
+          <ShieldCheck className="w-5 h-5" />
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-emerald-900">AUDIT CHAIN INTEGRITY: VALID</h3>
+            <h3 className="text-xs font-bold text-[#18794E] uppercase tracking-wider">AUDIT CHAIN INTEGRITY: VERIFIED</h3>
             <Badge variant="success">UNBROKEN HASH LINK</Badge>
           </div>
-          <p className="text-emerald-700 text-[11px] mt-0.5">
+          <p className="text-[#18794E] text-[11px] mt-0.5 font-medium">
             Verified {totalEvents} sequential events linked by SHA-256 digests. Zero broken pointers or deleted rows.
           </p>
         </div>
       </div>
 
       <Button
-        variant="outline"
+        variant="secondary"
         size="sm"
         onClick={onVerify}
         isLoading={isVerifying}

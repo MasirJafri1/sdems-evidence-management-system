@@ -6,6 +6,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
+import { CardSkeleton } from '../../../components/ui/TableSkeleton';
 import { Building, ShieldCheck, Plus, Users, CheckCircle, AlertCircle, UserCheck, Search } from 'lucide-react';
 import {
   createOrganizationApi,
@@ -39,6 +40,7 @@ export const OrganizationsPage: React.FC = () => {
 
   const [isAddOrgOpen, setIsAddOrgOpen] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -64,6 +66,7 @@ export const OrganizationsPage: React.FC = () => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
 
   const loadData = async () => {
+    setIsLoading(true);
     try {
       if (isSuperAdmin) {
         const superData = await getSuperAdminAllDataApi();
@@ -121,6 +124,8 @@ export const OrganizationsPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to load organization data:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -221,24 +226,30 @@ export const OrganizationsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DCE3EA] pb-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading flex items-center gap-2">
-            <Building className="w-7 h-7 text-slate-900" />
-            Multi-Tenant Organization Portal
-          </h1>
-          <p className="text-xs text-slate-600 mt-1">
-            Register government organizations, manage enrolled agency rosters, and assign organization administrator authority.
-          </p>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-[#123B63]/5 rounded-md border border-[#123B63]/10">
+              <Building className="w-5 h-5 text-[#123B63]" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black text-[#17212B] tracking-tight font-heading">
+                Multi-Tenant Organization Portal
+              </h1>
+              <p className="text-xs text-[#5B6875] mt-0.5">
+                Register government agencies, manage enrolled personnel rosters, and assign organization administrator authority.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             onClick={() => navigate('/users')}
-            leftIcon={<Users className="w-4 h-4 text-indigo-600" />}
+            leftIcon={<Users className="w-4 h-4 text-[#2F6B95]" />}
           >
-            Manage Users & Roster (User Tab)
+            Manage Roster (User Tab)
           </Button>
           <Button
             variant="primary"
@@ -252,27 +263,29 @@ export const OrganizationsPage: React.FC = () => {
 
       {/* Success / Error Banners */}
       {successMessage && (
-        <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 font-medium">
-          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 p-3 bg-[#18794E]/10 border border-[#18794E]/30 rounded-md text-xs text-[#18794E] font-medium">
+          <CheckCircle className="w-4 h-4 text-[#18794E] shrink-0 mt-0.5" />
           <span>{successMessage}</span>
-          <button onClick={() => setSuccessMessage(null)} className="ml-auto text-emerald-600 hover:text-emerald-800 font-bold">✕</button>
+          <button onClick={() => setSuccessMessage(null)} className="ml-auto text-[#18794E] hover:opacity-80 font-bold">✕</button>
         </div>
       )}
       {errorMessage && (
-        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-900 font-medium">
-          <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 p-3 bg-[#B42318]/10 border border-[#B42318]/30 rounded-md text-xs text-[#B42318] font-medium">
+          <AlertCircle className="w-4 h-4 text-[#B42318] shrink-0 mt-0.5" />
           <span>{errorMessage}</span>
-          <button onClick={() => setErrorMessage(null)} className="ml-auto text-red-600 hover:text-red-800 font-bold">✕</button>
+          <button onClick={() => setErrorMessage(null)} className="ml-auto text-[#B42318] hover:opacity-80 font-bold">✕</button>
         </div>
       )}
 
       {/* Organization Cards */}
-      {organizations.length === 0 ? (
-        <div className="p-8 border border-dashed border-slate-300 bg-slate-50 rounded-lg text-center space-y-3">
-          <Building className="w-10 h-10 text-slate-400 mx-auto" />
+      {isLoading ? (
+        <CardSkeleton count={3} />
+      ) : organizations.length === 0 ? (
+        <div className="p-8 border border-dashed border-[#DCE3EA] bg-white rounded-md text-center space-y-3">
+          <Building className="w-10 h-10 text-[#5B6875] mx-auto" />
           <div>
-            <h3 className="text-sm font-bold text-slate-800">No Enrolled Organizations</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+            <h3 className="text-sm font-bold text-[#17212B]">No Enrolled Organizations</h3>
+            <p className="text-xs text-[#5B6875] max-w-sm mx-auto mt-1">
               You are currently viewing organizations for your enrolled account. Click "Register Organization" above to provision a new agency.
             </p>
           </div>
@@ -287,14 +300,14 @@ export const OrganizationsPage: React.FC = () => {
             >
               <div className="space-y-3 text-xs pt-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Enrolled Personnel:</span>
-                  <span className="font-bold text-slate-900">{o.members.length} Officers</span>
+                  <span className="text-[#5B6875] font-medium">Enrolled Personnel:</span>
+                  <span className="font-bold text-[#17212B]">{o.members.length} Officers</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Active Containers:</span>
-                  <span className="font-bold text-slate-900">{o.casesCount} Cases</span>
+                  <span className="text-[#5B6875] font-medium">Active Containers:</span>
+                  <span className="font-bold text-[#17212B]">{o.casesCount} Cases</span>
                 </div>
-                <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+                <div className="flex flex-col gap-2 pt-2 border-t border-[#DCE3EA]">
                   <div className="flex items-center justify-between">
                     <Badge variant="success" size="sm">
                       <ShieldCheck className="w-3 h-3 inline mr-1" />
@@ -313,7 +326,7 @@ export const OrganizationsPage: React.FC = () => {
                       variant="outline"
                       size="sm"
                       onClick={() => navigate(`/cases?orgId=${o.id}`)}
-                      className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                      className="border-[#DCE3EA] text-[#2F6B95] hover:bg-[#F6F8FB]"
                     >
                       View Cases
                     </Button>
@@ -330,11 +343,11 @@ export const OrganizationsPage: React.FC = () => {
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-extrabold text-slate-900 font-heading flex items-center gap-2">
-                <Users className="w-4 h-4 text-slate-700" />
+              <h2 className="text-sm font-extrabold text-[#17212B] font-heading flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#2F6B95]" />
                 Personnel Roster for {currentSelectedOrg.name}
               </h2>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-[#5B6875]">
                 Showing assigned personnel and organization administrator credentials.
               </p>
             </div>
@@ -348,36 +361,36 @@ export const OrganizationsPage: React.FC = () => {
             </Button>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded">
+          <div className="overflow-x-auto border border-[#DCE3EA] rounded-md bg-white">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider">
+                <tr className="border-b border-[#DCE3EA] bg-[#F6F8FB] text-[#123B63] font-bold uppercase tracking-wider text-[11px]">
                   <th className="p-3">Officer Name & Badge</th>
                   <th className="p-3">Assigned Role</th>
                   <th className="p-3">Department / Division</th>
                   <th className="p-3">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 font-medium bg-white">
+              <tbody className="divide-y divide-[#DCE3EA] font-medium bg-white">
                 {currentSelectedOrg.members.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="p-6 text-center text-slate-500 italic">
+                    <td colSpan={4} className="p-6 text-center text-[#5B6875] italic">
                       No personnel assigned yet. Go to the Users tab to add new officers.
                     </td>
                   </tr>
                 ) : (
                   currentSelectedOrg.members.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-50">
+                    <tr key={m.id} className="hover:bg-[#F6F8FB]">
                       <td className="p-3 space-y-0.5">
-                        <div className="font-bold text-slate-900">{m.name}</div>
-                        <div className="font-mono text-[11px] text-slate-500">{m.badgeNumber}</div>
+                        <div className="font-bold text-[#17212B]">{m.name}</div>
+                        <div className="font-mono text-[11px] text-[#5B6875]">{m.badgeNumber}</div>
                       </td>
                       <td className="p-3">
                         <Badge variant="neutral" size="sm">
                           {m.role}
                         </Badge>
                       </td>
-                      <td className="p-3 text-slate-600">{m.department}</td>
+                      <td className="p-3 text-[#5B6875]">{m.department}</td>
                       <td className="p-3">
                         <Badge variant="success" size="sm">
                           {m.status}
@@ -400,7 +413,7 @@ export const OrganizationsPage: React.FC = () => {
         maxWidth="md"
       >
         <form onSubmit={handleRegisterOrg} className="space-y-4 text-xs">
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded text-blue-900 text-[11px]">
+          <div className="p-3 bg-[#EBF3FA] border border-[#2F6B95]/30 rounded-md text-[#123B63] text-[11px]">
             <strong>Compulsory Admin Assignment:</strong> Every new organization must be assigned an Organization Admin. You can either lookup an existing registered officer by Email/ID or create a new user on the go.
           </div>
 
@@ -421,26 +434,26 @@ export const OrganizationsPage: React.FC = () => {
           />
 
           {/* Compulsory Admin Selection Mode Toggles */}
-          <div className="pt-2 border-t border-slate-200 space-y-3">
-            <label className="block text-xs font-bold text-slate-800">
-              Compulsory Organization Admin Assignment <span className="text-red-500">*</span>
+          <div className="pt-2 border-t border-[#DCE3EA] space-y-3">
+            <label className="block text-xs font-bold text-[#17212B] uppercase tracking-wider">
+              Compulsory Organization Admin Assignment <span className="text-[#B42318]">*</span>
             </label>
 
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setAdminType('NEW')}
-                className={`p-3 text-left rounded border transition-colors ${
+                className={`p-3 text-left rounded-md border transition-colors ${
                   adminType === 'NEW'
-                    ? 'border-indigo-600 bg-indigo-50/60 text-indigo-900 font-bold'
-                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    ? 'border-[#123B63] bg-[#EBF3FA] text-[#123B63] font-bold'
+                    : 'border-[#DCE3EA] bg-white text-[#17212B] hover:bg-[#F6F8FB]'
                 }`}
               >
                 <div className="flex items-center gap-1.5 text-xs font-bold">
-                  <UserCheck className="w-4 h-4 text-indigo-600" />
+                  <UserCheck className="w-4 h-4 text-[#123B63]" />
                   Create New User
                 </div>
-                <div className="text-[10px] text-slate-500 mt-1">
+                <div className="text-[10px] text-[#5B6875] mt-1">
                   Provision new login credentials on the go
                 </div>
               </button>
@@ -448,17 +461,17 @@ export const OrganizationsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setAdminType('EXISTING')}
-                className={`p-3 text-left rounded border transition-colors ${
+                className={`p-3 text-left rounded-md border transition-colors ${
                   adminType === 'EXISTING'
-                    ? 'border-indigo-600 bg-indigo-50/60 text-indigo-900 font-bold'
-                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    ? 'border-[#123B63] bg-[#EBF3FA] text-[#123B63] font-bold'
+                    : 'border-[#DCE3EA] bg-white text-[#17212B] hover:bg-[#F6F8FB]'
                 }`}
               >
                 <div className="flex items-center gap-1.5 text-xs font-bold">
-                  <Users className="w-4 h-4 text-indigo-600" />
+                  <Users className="w-4 h-4 text-[#123B63]" />
                   Assign Registered Officer (Search by Email/ID)
                 </div>
-                <div className="text-[10px] text-slate-500 mt-1">
+                <div className="text-[10px] text-[#5B6875] mt-1">
                   Lookup registered officer by Email or User ID
                 </div>
               </button>
@@ -469,8 +482,8 @@ export const OrganizationsPage: React.FC = () => {
               <div className="space-y-3 pt-2">
                 {allRegisteredUsers.length > 0 && (
                   <div className="space-y-1">
-                    <label className="block text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-indigo-600" />
+                    <label className="block text-xs font-bold text-[#17212B] uppercase flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-[#2F6B95]" />
                       Select from System Registered Officers ({allRegisteredUsers.length})
                     </label>
                     <select
@@ -487,7 +500,7 @@ export const OrganizationsPage: React.FC = () => {
                           setSearchedAdmin(null);
                         }
                       }}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 bg-white border border-[#DCE3EA] rounded-md text-xs font-semibold text-[#17212B] focus:outline-none focus:ring-1 focus:ring-[#123B63]"
                     >
                       <option value="">-- Choose Registered Officer to assign as Org Admin --</option>
                       {allRegisteredUsers.map((u) => (
@@ -500,9 +513,9 @@ export const OrganizationsPage: React.FC = () => {
                 )}
 
                 <div className="flex items-center gap-2 my-1">
-                  <div className="flex-1 border-t border-slate-200"></div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Or Search by Email / ID</span>
-                  <div className="flex-1 border-t border-slate-200"></div>
+                  <div className="flex-1 border-t border-[#DCE3EA]"></div>
+                  <span className="text-[10px] uppercase font-bold text-[#5B6875]">Or Search by Email / ID</span>
+                  <div className="flex-1 border-t border-[#DCE3EA]"></div>
                 </div>
 
                 <div className="flex gap-2">
@@ -517,7 +530,7 @@ export const OrganizationsPage: React.FC = () => {
                         handleAdminLookup();
                       }
                     }}
-                    className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="flex-1 px-3 py-2 bg-white border border-[#DCE3EA] rounded-md text-xs text-[#17212B] focus:outline-none focus:ring-1 focus:ring-[#123B63]"
                   />
                   <Button
                     type="button"
@@ -532,20 +545,20 @@ export const OrganizationsPage: React.FC = () => {
                 </div>
 
                 {searchedAdmin && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded space-y-1 text-xs text-emerald-950 font-medium">
-                    <div className="font-bold flex items-center gap-1.5 text-emerald-900">
-                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="p-3 bg-[#18794E]/10 border border-[#18794E]/30 rounded-md space-y-1 text-xs text-[#18794E] font-medium">
+                    <div className="font-bold flex items-center gap-1.5 text-[#18794E]">
+                      <CheckCircle className="w-4 h-4 text-[#18794E] shrink-0" />
                       Admin Officer Selected: {searchedAdmin.name} ({searchedAdmin.email})
                     </div>
-                    <div className="text-[11px] text-emerald-700 font-mono">
+                    <div className="text-[11px] text-[#18794E]/80 font-mono">
                       User ID: {searchedAdmin.id}
                     </div>
                   </div>
                 )}
 
                 {adminLookupError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-900 font-medium flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <div className="p-3 bg-[#B42318]/10 border border-[#B42318]/30 rounded-md text-xs text-[#B42318] font-medium flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-[#B42318] shrink-0" />
                     <span>{adminLookupError}</span>
                   </div>
                 )}
@@ -576,14 +589,14 @@ export const OrganizationsPage: React.FC = () => {
                   placeholder="••••••••••••"
                   required
                 />
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-[#5B6875]">
                   This user will be registered in the system and can log in at the portal with these credentials.
                 </p>
               </div>
             )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+          <div className="flex justify-end gap-3 pt-3 border-t border-[#DCE3EA]">
             <Button type="button" variant="outline" onClick={() => setIsAddOrgOpen(false)}>
               Cancel
             </Button>

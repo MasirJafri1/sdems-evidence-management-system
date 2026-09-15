@@ -328,13 +328,13 @@ export const UsersPage: React.FC = () => {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DCE3EA] pb-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading flex items-center gap-2">
-            <Users className="w-7 h-7 text-slate-900" />
+          <h1 className="text-xl font-extrabold text-[#123B63] tracking-tight flex items-center gap-2">
+            <Users className="w-6 h-6 text-[#123B63]" />
             User Administration & Personnel Roster
           </h1>
-          <p className="text-xs text-slate-600 mt-0.5">
+          <p className="text-xs text-[#5B6875] mt-0.5">
             Manage officer user accounts, search & enroll existing global officers by Email/ID, and assign custom roles with permission checkboxes.
           </p>
         </div>
@@ -344,7 +344,7 @@ export const UsersPage: React.FC = () => {
             <select
               value={selectedOrgId}
               onChange={(e) => setSelectedOrgId(e.target.value)}
-              className="px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-800"
+              className="px-2.5 py-1.5 bg-white border border-[#DCE3EA] rounded-md text-xs font-semibold text-[#17212B] shadow-2xs focus:outline-none focus:border-[#123B63]"
             >
               <option value="ALL">All Enrolled Agencies ({organizations.length})</option>
               {organizations.map((org) => (
@@ -359,25 +359,26 @@ export const UsersPage: React.FC = () => {
             <Button
               variant="primary"
               onClick={() => setIsAddUserOpen(true)}
-              leftIcon={<UserPlus className="w-4 h-4" />}
+              leftIcon={<UserPlus className="w-3.5 h-3.5" />}
+              size="sm"
             >
               Add Officer / User
             </Button>
           )}
 
-          <div className="flex items-center gap-1 bg-slate-200 p-1 rounded">
+          <div className="flex items-center gap-1 bg-[#F6F8FB] border border-[#DCE3EA] p-1 rounded-md">
             <button
               onClick={() => setActiveTab('users')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors ${
-                activeTab === 'users' ? 'bg-slate-900 text-white font-bold' : 'text-slate-700 hover:text-slate-900'
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                activeTab === 'users' ? 'bg-[#123B63] text-white' : 'text-[#5B6875] hover:text-[#123B63]'
               }`}
             >
               Officer Roster ({users.length})
             </button>
             <button
               onClick={() => setActiveTab('permissions')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors ${
-                activeTab === 'permissions' ? 'bg-slate-900 text-white font-bold' : 'text-slate-700 hover:text-slate-900'
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                activeTab === 'permissions' ? 'bg-[#123B63] text-white' : 'text-[#5B6875] hover:text-[#123B63]'
               }`}
             >
               Permission Matrix
@@ -388,25 +389,25 @@ export const UsersPage: React.FC = () => {
 
       {/* Success / Error Banners */}
       {successMessage && (
-        <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 font-medium">
-          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 p-3 bg-[#E6F4ED] border border-[#B2DDCE] rounded-md text-xs text-[#18794E] font-semibold">
+          <CheckCircle className="w-4 h-4 text-[#18794E] shrink-0 mt-0.5" />
           <span>{successMessage}</span>
-          <button onClick={() => setSuccessMessage(null)} className="ml-auto text-emerald-600 hover:text-emerald-800 font-bold">✕</button>
+          <button onClick={() => setSuccessMessage(null)} className="ml-auto text-[#18794E] hover:text-[#123B63] font-bold">✕</button>
         </div>
       )}
       {errorMessage && (
-        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-900 font-medium">
-          <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 p-3 bg-[#FEF3F2] border border-[#FECDCA] rounded-md text-xs text-[#B42318] font-semibold">
+          <AlertCircle className="w-4 h-4 text-[#B42318] shrink-0 mt-0.5" />
           <span>{errorMessage}</span>
-          <button onClick={() => setErrorMessage(null)} className="ml-auto text-red-600 hover:text-red-800 font-bold">✕</button>
+          <button onClick={() => setErrorMessage(null)} className="ml-auto text-[#B42318] hover:text-[#911B12] font-bold">✕</button>
         </div>
       )}
 
       {activeTab === 'users' ? (
-        <div className="overflow-x-auto border border-slate-200 rounded">
+        <div className="overflow-x-auto border border-[#DCE3EA] rounded-md bg-white shadow-2xs">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider">
+              <tr className="border-b border-[#DCE3EA] bg-[#F6F8FB] text-[#5B6875] font-bold uppercase tracking-wider">
                 <th className="p-3">Officer Name & Email</th>
                 <th className="p-3">Role & Designation</th>
                 <th className="p-3">Organization</th>
@@ -414,55 +415,55 @@ export const UsersPage: React.FC = () => {
                 <th className="p-3">Joined Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 font-medium bg-white">
+            <tbody className="divide-y divide-[#DCE3EA] font-medium bg-white">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-12 text-center text-slate-500">
+                  <td colSpan={5} className="p-12 text-center text-[#5B6875]">
                     <div className="max-w-md mx-auto space-y-2">
-                      <div className="w-10 h-10 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                        <ShieldCheck className="w-5 h-5" />
+                      <div className="w-10 h-10 mx-auto rounded-full bg-[#F6F8FB] border border-[#DCE3EA] flex items-center justify-center text-[#5B6875]">
+                        <ShieldCheck className="w-5 h-5 text-[#2F6B95]" />
                       </div>
-                      <div className="font-bold text-slate-800 text-sm">
+                      <div className="font-bold text-[#123B63] text-sm">
                         {isSuperAdmin
                           ? 'No personnel found matching the selected agency filter.'
                           : 'Zero Personnel In Visibility Scope'}
                       </div>
-                      <p className="text-xs text-slate-500 leading-relaxed">
+                      <p className="text-xs text-[#5B6875] leading-relaxed">
                         {isSuperAdmin
                           ? 'Click "Add Officer / User" above to enroll personnel into the agency roster.'
-                          : 'You are currently not assigned to any law enforcement agency or active case. By strict multi-tenancy rules, your visibility is restricted to zero organizations and zero personnel until an administrator assigns you.'}
+                          : 'You are currently not assigned to any law enforcement agency or active case.'}
                       </p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50">
+                  <tr key={u.id} className="hover:bg-[#F6F8FB] transition-colors">
                     <td className="p-3 space-y-0.5">
-                      <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                        <Users className="w-4 h-4 text-slate-700 shrink-0" />
+                      <div className="font-bold text-[#123B63] flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-[#2F6B95] shrink-0" />
                         {u.name}
                       </div>
-                      <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                        <Mail className="w-3 h-3 text-slate-400" />
+                      <div className="text-[11px] text-[#5B6875] flex items-center gap-1 font-mono">
+                        <Mail className="w-3 h-3 text-[#5B6875]" />
                         {u.email}
                       </div>
                     </td>
                     <td className="p-3 space-y-0.5">
-                      <div className="text-slate-800 font-semibold">{u.role}</div>
-                      <div className="text-[11px] text-slate-500">{u.designation}</div>
+                      <div className="text-[#17212B] font-semibold">{u.role}</div>
+                      <div className="text-[11px] text-[#5B6875]">{u.designation}</div>
                     </td>
-                    <td className="p-3 font-semibold text-slate-700 flex items-center gap-1">
-                      <Building className="w-3.5 h-3.5 text-slate-400" />
+                    <td className="p-3 font-semibold text-[#123B63] flex items-center gap-1">
+                      <Building className="w-3.5 h-3.5 text-[#2F6B95]" />
                       {u.organization}
                     </td>
                     <td className="p-3">
                       <Badge variant={u.status === 'ACTIVE' ? 'success' : 'danger'} size="sm">
-                        <ShieldCheck className="w-3 h-3 inline mr-1" />
+                        <ShieldCheck className="w-3 h-3 inline mr-1 text-[#18794E]" />
                         {u.status}
                       </Badge>
                     </td>
-                    <td className="p-3 text-[11px] text-slate-500">
+                    <td className="p-3 text-[11px] text-[#5B6875] font-mono">
                       {new Date(u.lastLogin).toLocaleDateString()}
                     </td>
                   </tr>

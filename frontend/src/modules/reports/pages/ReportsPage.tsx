@@ -247,22 +247,28 @@ export const ReportsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Printable Header (Visible on print only) */}
-      <div className="hidden print:block border-b-2 border-slate-900 pb-3 mb-4">
-        <h1 className="text-xl font-bold uppercase tracking-wide">Government of India — National Forensic Evidence Portal</h1>
-        <p className="text-xs text-slate-600">Official Forensic Audit Trail & Chain-of-Custody Certification Ledger</p>
-        <p className="text-[10px] text-slate-500 mt-1">Generated: {new Date().toLocaleString()} | Digital Seal: SHA-256 Verified</p>
+      <div className="hidden print:block border-b-2 border-[#123B63] pb-3 mb-4">
+        <h1 className="text-xl font-bold uppercase tracking-wide text-[#123B63]">Government of India — National Forensic Evidence Portal</h1>
+        <p className="text-xs text-[#5B6875]">Official Forensic Audit Trail & Chain-of-Custody Certification Ledger</p>
+        <p className="text-[10px] text-[#5B6875] mt-1">Generated: {new Date().toLocaleString()} | Digital Seal: SHA-256 Verified</p>
       </div>
 
       {/* Screen Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DCE3EA] pb-4 print:hidden">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading flex items-center gap-2">
-            <FileSpreadsheet className="w-7 h-7 text-slate-900" />
-            Official Government Forensic Reports & Ledger Exports
-          </h1>
-          <p className="text-xs text-slate-600 mt-0.5">
-            Real-time evidence integrity certifications, chain-of-custody handshakes, and sequential case audit reports.
-          </p>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-[#123B63]/5 rounded-md border border-[#123B63]/10">
+              <FileSpreadsheet className="w-5 h-5 text-[#123B63]" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black text-[#17212B] tracking-tight font-heading">
+                Official Forensic Reports & Ledger Exports
+              </h1>
+              <p className="text-xs text-[#5B6875] mt-0.5">
+                Real-time evidence integrity certifications, chain-of-custody handshakes, and sequential case audit reports.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -305,22 +311,22 @@ export const ReportsPage: React.FC = () => {
         <button
           type="button"
           onClick={() => { setActiveReport('integrity'); setSearchTerm(''); }}
-          className={`p-4 rounded-lg border text-left transition-all cursor-pointer ${
+          className={`p-4 rounded-md border text-left transition-all cursor-pointer ${
             activeReport === 'integrity'
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/10'
-              : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300'
+              ? 'bg-[#123B63] text-white border-[#123B63] shadow-md'
+              : 'bg-white text-[#17212B] border-[#DCE3EA] hover:bg-[#F6F8FB]'
           }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 font-bold text-sm">
-              <ShieldCheck className={`w-5 h-5 ${activeReport === 'integrity' ? 'text-emerald-400' : 'text-emerald-600'}`} />
+              <ShieldCheck className={`w-5 h-5 ${activeReport === 'integrity' ? 'text-emerald-400' : 'text-[#18794E]'}`} />
               1. Evidence Integrity Report
             </div>
             <Badge variant={activeReport === 'integrity' ? 'success' : 'neutral'} size="sm">
               {documents.length} Records
             </Badge>
           </div>
-          <p className={`text-[11px] mt-1.5 line-clamp-2 ${activeReport === 'integrity' ? 'text-slate-300' : 'text-slate-500'}`}>
+          <p className={`text-[11px] mt-1.5 line-clamp-2 ${activeReport === 'integrity' ? 'text-slate-200' : 'text-[#5B6875]'}`}>
             Document exhibits, SHA-256 hashes, timestamps, versions, blockchain anchor IDs, and verification status.
           </p>
         </button>
@@ -328,22 +334,22 @@ export const ReportsPage: React.FC = () => {
         <button
           type="button"
           onClick={() => { setActiveReport('custody'); setSearchTerm(''); }}
-          className={`p-4 rounded-lg border text-left transition-all cursor-pointer ${
+          className={`p-4 rounded-md border text-left transition-all cursor-pointer ${
             activeReport === 'custody'
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/10'
-              : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300'
+              ? 'bg-[#123B63] text-white border-[#123B63] shadow-md'
+              : 'bg-white text-[#17212B] border-[#DCE3EA] hover:bg-[#F6F8FB]'
           }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 font-bold text-sm">
-              <GitCommit className={`w-5 h-5 ${activeReport === 'custody' ? 'text-blue-400' : 'text-blue-600'}`} />
+              <GitCommit className={`w-5 h-5 ${activeReport === 'custody' ? 'text-blue-300' : 'text-[#2F6B95]'}`} />
               2. Chain of Custody Report
             </div>
             <Badge variant={activeReport === 'custody' ? 'info' : 'neutral'} size="sm">
               {transfers.length} Transfers
             </Badge>
           </div>
-          <p className={`text-[11px] mt-1.5 line-clamp-2 ${activeReport === 'custody' ? 'text-slate-300' : 'text-slate-500'}`}>
+          <p className={`text-[11px] mt-1.5 line-clamp-2 ${activeReport === 'custody' ? 'text-slate-200' : 'text-[#5B6875]'}`}>
             Evidence IDs, relinquishing/receiving custodians, legal reason, timestamps, acceptance status, and cryptographic hashes.
           </p>
         </button>
@@ -351,22 +357,22 @@ export const ReportsPage: React.FC = () => {
         <button
           type="button"
           onClick={() => { setActiveReport('audit'); setSearchTerm(''); }}
-          className={`p-4 rounded-lg border text-left transition-all cursor-pointer ${
+          className={`p-4 rounded-md border text-left transition-all cursor-pointer ${
             activeReport === 'audit'
-              ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/10'
-              : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300'
+              ? 'bg-[#123B63] text-white border-[#123B63] shadow-md'
+              : 'bg-white text-[#17212B] border-[#DCE3EA] hover:bg-[#F6F8FB]'
           }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 font-bold text-sm">
-              <FileText className={`w-5 h-5 ${activeReport === 'audit' ? 'text-purple-400' : 'text-purple-600'}`} />
+              <FileText className={`w-5 h-5 ${activeReport === 'audit' ? 'text-amber-300' : 'text-[#A66A00]'}`} />
               3. Case Audit Report
             </div>
             <Badge variant={activeReport === 'audit' ? 'warning' : 'neutral'} size="sm">
               {auditEvents.length} Events
             </Badge>
           </div>
-          <p className={`text-[11px] mt-1.5 line-clamp-2 ${activeReport === 'audit' ? 'text-slate-300' : 'text-slate-500'}`}>
+          <p className={`text-[11px] mt-1.5 line-clamp-2 ${activeReport === 'audit' ? 'text-slate-200' : 'text-[#5B6875]'}`}>
             Sequential hash-chained timeline: uploads, views/downloads, verifications, version creations, custody changes, and access denied events.
           </p>
         </button>
@@ -375,7 +381,7 @@ export const ReportsPage: React.FC = () => {
       {/* Live Search Bar */}
       <div className="flex items-center gap-2 print:hidden">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-[#5B6875] absolute left-3 top-2.5" />
           <input
             type="text"
             placeholder={
@@ -387,7 +393,7 @@ export const ReportsPage: React.FC = () => {
             }
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-[#DCE3EA] rounded-md text-xs text-[#17212B] placeholder-[#5B6875] focus:outline-none focus:ring-1 focus:ring-[#123B63]"
           />
         </div>
       </div>
@@ -398,29 +404,29 @@ export const ReportsPage: React.FC = () => {
       {activeReport === 'integrity' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-3 bg-white border border-slate-200 rounded border-l-4 border-l-emerald-600 text-xs">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Document Exhibits</div>
-              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">{documents.length}</div>
-              <div className="text-slate-500 text-[11px] mt-0.5">Anchored with SHA-256</div>
+            <div className="p-3 bg-white border border-[#DCE3EA] rounded-md border-l-4 border-l-[#18794E] text-xs">
+              <div className="text-[10px] uppercase font-bold text-[#5B6875]">Document Exhibits</div>
+              <div className="text-xl font-bold text-[#17212B] font-mono mt-0.5">{documents.length}</div>
+              <div className="text-[#5B6875] text-[11px] mt-0.5">Anchored with SHA-256</div>
             </div>
-            <div className="p-3 bg-white border border-slate-200 rounded border-l-4 border-l-blue-600 text-xs">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Blockchain Anchoring</div>
-              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
+            <div className="p-3 bg-white border border-[#DCE3EA] rounded-md border-l-4 border-l-[#2F6B95] text-xs">
+              <div className="text-[10px] uppercase font-bold text-[#5B6875]">Blockchain Anchoring</div>
+              <div className="text-xl font-bold text-[#17212B] font-mono mt-0.5">
                 {documents.filter((d) => d.versions?.[0]?.blockchainAnchor?.status === 'CONFIRMED').length} Confirmed
               </div>
-              <div className="text-slate-500 text-[11px] mt-0.5">EvidenceRegistry Smart Contract</div>
+              <div className="text-[#5B6875] text-[11px] mt-0.5">EvidenceRegistry Smart Contract</div>
             </div>
-            <div className="p-3 bg-white border border-slate-200 rounded border-l-4 border-l-purple-600 text-xs">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Digest Algorithm</div>
-              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">SHA-256</div>
-              <div className="text-slate-500 text-[11px] mt-0.5">Section 65B Indian Evidence Act Compliant</div>
+            <div className="p-3 bg-white border border-[#DCE3EA] rounded-md border-l-4 border-l-[#123B63] text-xs">
+              <div className="text-[10px] uppercase font-bold text-[#5B6875]">Digest Algorithm</div>
+              <div className="text-xl font-bold text-[#17212B] font-mono mt-0.5">SHA-256</div>
+              <div className="text-[#5B6875] text-[11px] mt-0.5">Section 65B Indian Evidence Act Compliant</div>
             </div>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded bg-white shadow-sm">
+          <div className="overflow-x-auto border border-[#DCE3EA] rounded-md bg-white">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider">
+                <tr className="border-b border-[#DCE3EA] bg-[#F6F8FB] text-[#123B63] font-bold uppercase tracking-wider text-[11px]">
                   <th className="p-3">Case</th>
                   <th className="p-3">Document Exhibit</th>
                   <th className="p-3">Cryptographic SHA-256 Digest</th>
@@ -431,10 +437,10 @@ export const ReportsPage: React.FC = () => {
                   <th className="p-3">Verification Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 font-medium">
+              <tbody className="divide-y divide-[#DCE3EA] font-medium">
                 {filteredDocuments.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-slate-500 italic">
+                    <td colSpan={8} className="p-8 text-center text-[#5B6875] italic">
                       No document exhibits found matching your search.
                     </td>
                   </tr>
@@ -443,46 +449,46 @@ export const ReportsPage: React.FC = () => {
                     const v = d.versions?.[0] || {};
                     const anchor = v.blockchainAnchor;
                     return (
-                      <tr key={d.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={d.id} className="hover:bg-[#F6F8FB] transition-colors">
                         <td className="p-3">
-                          <div className="font-bold text-slate-900">{d.case?.caseNumber || 'CASE-GENERAL'}</div>
-                          <div className="text-[11px] text-slate-500 line-clamp-1">{d.case?.title || 'Case'}</div>
+                          <div className="font-bold text-[#17212B]">{d.case?.caseNumber || 'CASE-GENERAL'}</div>
+                          <div className="text-[11px] text-[#5B6875] line-clamp-1">{d.case?.title || 'Case'}</div>
                         </td>
                         <td className="p-3">
-                          <div className="font-bold text-slate-900">{d.title}</div>
-                          <div className="text-[11px] text-slate-500 font-mono">{v.originalFileName || 'file.bin'}</div>
+                          <div className="font-bold text-[#17212B]">{d.title}</div>
+                          <div className="text-[11px] text-[#5B6875] font-mono">{v.originalFileName || 'file.bin'}</div>
                         </td>
                         <td className="p-3">
-                          <div className="font-mono text-[11px] text-slate-800 max-w-[180px] truncate bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title={v.sha256Hash}>
+                          <div className="font-mono text-[11px] text-[#17212B] max-w-[180px] truncate bg-[#F6F8FB] px-1.5 py-0.5 rounded border border-[#DCE3EA]" title={v.sha256Hash}>
                             {v.sha256Hash || 'e3b0c44298fc1c149afbf4c8996fb924...'}
                           </div>
                         </td>
-                        <td className="p-3 text-[11px] text-slate-600 whitespace-nowrap">
-                          <Clock className="w-3 h-3 inline mr-1 text-slate-400" />
+                        <td className="p-3 text-[11px] text-[#5B6875] whitespace-nowrap">
+                          <Clock className="w-3 h-3 inline mr-1 text-[#5B6875]" />
                           {v.uploadedAt ? new Date(v.uploadedAt).toLocaleString() : 'N/A'}
                         </td>
                         <td className="p-3">
                           <Badge variant="neutral" size="sm">v{v.versionNumber || 1}</Badge>
                         </td>
-                        <td className="p-3 font-mono text-[11px] text-slate-600">
+                        <td className="p-3 font-mono text-[11px] text-[#5B6875]">
                           {anchor?.anchorId ? (
-                            <span className="text-emerald-700 font-bold truncate block max-w-[120px]" title={anchor.anchorId}>
+                            <span className="text-[#18794E] font-bold truncate block max-w-[120px]" title={anchor.anchorId}>
                               {anchor.anchorId}
                             </span>
                           ) : (
-                            <span className="text-amber-600">PENDING_TX</span>
+                            <span className="text-[#A66A00]">PENDING_TX</span>
                           )}
                         </td>
-                        <td className="p-3 font-mono text-[11px] text-slate-500">
+                        <td className="p-3 font-mono text-[11px] text-[#5B6875]">
                           {anchor?.transactionHash ? (
                             <div>
                               <span className="truncate block max-w-[120px]" title={anchor.transactionHash}>
                                 {anchor.transactionHash}
                               </span>
-                              {anchor.blockNumber && <div className="text-[10px] text-slate-400">Block #{anchor.blockNumber}</div>}
+                              {anchor.blockNumber && <div className="text-[10px] text-[#5B6875]">Block #{anchor.blockNumber}</div>}
                             </div>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-[#5B6875]">—</span>
                           )}
                         </td>
                         <td className="p-3">
@@ -507,31 +513,31 @@ export const ReportsPage: React.FC = () => {
       {activeReport === 'custody' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-3 bg-white border border-slate-200 rounded border-l-4 border-l-blue-600 text-xs">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Total Custody Transfers</div>
-              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">{transfers.length}</div>
-              <div className="text-slate-500 text-[11px] mt-0.5">Physical & Digital Evidence Transfers</div>
+            <div className="p-3 bg-white border border-[#DCE3EA] rounded-md border-l-4 border-l-[#2F6B95] text-xs">
+              <div className="text-[10px] uppercase font-bold text-[#5B6875]">Total Custody Transfers</div>
+              <div className="text-xl font-bold text-[#17212B] font-mono mt-0.5">{transfers.length}</div>
+              <div className="text-[#5B6875] text-[11px] mt-0.5">Physical & Digital Evidence Transfers</div>
             </div>
-            <div className="p-3 bg-white border border-slate-200 rounded border-l-4 border-l-emerald-600 text-xs">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Completed Handshakes</div>
-              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
+            <div className="p-3 bg-white border border-[#DCE3EA] rounded-md border-l-4 border-l-[#18794E] text-xs">
+              <div className="text-[10px] uppercase font-bold text-[#5B6875]">Completed Handshakes</div>
+              <div className="text-xl font-bold text-[#17212B] font-mono mt-0.5">
                 {transfers.filter((t) => t.status === 'ACCEPTED').length} Accepted
               </div>
-              <div className="text-slate-500 text-[11px] mt-0.5">Two-party signed & attested</div>
+              <div className="text-[#5B6875] text-[11px] mt-0.5">Two-party signed & attested</div>
             </div>
-            <div className="p-3 bg-white border border-slate-200 rounded border-l-4 border-l-amber-600 text-xs">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Pending Acceptance</div>
-              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
+            <div className="p-3 bg-white border border-[#DCE3EA] rounded-md border-l-4 border-l-[#A66A00] text-xs">
+              <div className="text-[10px] uppercase font-bold text-[#5B6875]">Pending Acceptance</div>
+              <div className="text-xl font-bold text-[#17212B] font-mono mt-0.5">
                 {transfers.filter((t) => t.status === 'PENDING').length} In-Transit
               </div>
-              <div className="text-slate-500 text-[11px] mt-0.5">Awaiting receiving officer sign-off</div>
+              <div className="text-[#5B6875] text-[11px] mt-0.5">Awaiting receiving officer sign-off</div>
             </div>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded bg-white shadow-sm">
+          <div className="overflow-x-auto border border-[#DCE3EA] rounded-md bg-white">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider">
+                <tr className="border-b border-[#DCE3EA] bg-[#F6F8FB] text-[#123B63] font-bold uppercase tracking-wider text-[11px]">
                   <th className="p-3">Evidence ID & Exhibit</th>
                   <th className="p-3">From (Relinquishing Officer)</th>
                   <th className="p-3">To (Receiving Officer)</th>
@@ -541,10 +547,10 @@ export const ReportsPage: React.FC = () => {
                   <th className="p-3">Event / Cryptographic Hash</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 font-medium">
+              <tbody className="divide-y divide-[#DCE3EA] font-medium">
                 {filteredTransfers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-500 italic">
+                    <td colSpan={7} className="p-8 text-center text-[#5B6875] italic">
                       No chain of custody transfers recorded matching your search.
                     </td>
                   </tr>
@@ -552,24 +558,24 @@ export const ReportsPage: React.FC = () => {
                   filteredTransfers.map((t) => {
                     const eventHash = t.custodyEvent?.eventHash || t.id;
                     return (
-                      <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={t.id} className="hover:bg-[#F6F8FB] transition-colors">
                         <td className="p-3 space-y-0.5">
-                          <div className="font-bold text-slate-900">{t.evidence?.title || 'Evidence Exhibit'}</div>
-                          <div className="font-mono text-[11px] text-slate-500">{t.evidence?.evidenceNumber || t.evidenceId}</div>
+                          <div className="font-bold text-[#17212B]">{t.evidence?.title || 'Evidence Exhibit'}</div>
+                          <div className="font-mono text-[11px] text-[#5B6875]">{t.evidence?.evidenceNumber || t.evidenceId}</div>
                         </td>
                         <td className="p-3">
-                          <div className="font-semibold text-slate-800">{t.fromUser?.name || 'Authorized Officer'}</div>
-                          <div className="text-[11px] text-slate-500">{t.fromUser?.memberships?.[0]?.organization?.name || 'Department Vault'}</div>
+                          <div className="font-semibold text-[#17212B]">{t.fromUser?.name || 'Authorized Officer'}</div>
+                          <div className="text-[11px] text-[#5B6875]">{t.fromUser?.memberships?.[0]?.organization?.name || 'Department Vault'}</div>
                         </td>
                         <td className="p-3">
-                          <div className="font-semibold text-slate-800">{t.toUser?.name || 'Receiving Officer'}</div>
-                          <div className="text-[11px] text-slate-500">{t.toUser?.memberships?.[0]?.organization?.name || 'Destination Unit'}</div>
+                          <div className="font-semibold text-[#17212B]">{t.toUser?.name || 'Receiving Officer'}</div>
+                          <div className="text-[11px] text-[#5B6875]">{t.toUser?.memberships?.[0]?.organization?.name || 'Destination Unit'}</div>
                         </td>
-                        <td className="p-3 text-slate-700 italic max-w-xs">
+                        <td className="p-3 text-[#5B6875] italic max-w-xs">
                           {t.reason || 'Official transfer for laboratory analysis'}
                         </td>
-                        <td className="p-3 text-[11px] text-slate-600 whitespace-nowrap">
-                          <Clock className="w-3 h-3 inline mr-1 text-slate-400" />
+                        <td className="p-3 text-[11px] text-[#5B6875] whitespace-nowrap">
+                          <Clock className="w-3 h-3 inline mr-1 text-[#5B6875]" />
                           {t.createdAt ? new Date(t.createdAt).toLocaleString() : 'N/A'}
                         </td>
                         <td className="p-3">
@@ -587,14 +593,14 @@ export const ReportsPage: React.FC = () => {
                             {t.status}
                           </Badge>
                           {t.rejectionReason && (
-                            <div className="text-[10px] text-red-600 mt-0.5 font-normal">
+                            <div className="text-[10px] text-[#B42318] mt-0.5 font-normal">
                               Reason: {t.rejectionReason}
                             </div>
                           )}
                         </td>
                         <td className="p-3">
                           <div
-                            className="font-mono text-[11px] text-slate-700 truncate max-w-[140px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
+                            className="font-mono text-[11px] text-[#17212B] truncate max-w-[140px] bg-[#F6F8FB] px-1.5 py-0.5 rounded border border-[#DCE3EA]"
                             title={eventHash}
                           >
                             {eventHash}
@@ -616,25 +622,25 @@ export const ReportsPage: React.FC = () => {
       {activeReport === 'audit' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-3 bg-white border border-slate-200 rounded border-l-4 border-l-purple-600 text-xs">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Audit Events Recorded</div>
-              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">{auditEvents.length}</div>
-              <div className="text-slate-500 text-[11px] mt-0.5">PostgreSQL Immutable Log</div>
+            <div className="p-3 bg-white border border-[#DCE3EA] rounded-md border-l-4 border-l-[#123B63] text-xs">
+              <div className="text-[10px] uppercase font-bold text-[#5B6875]">Audit Events Recorded</div>
+              <div className="text-xl font-bold text-[#17212B] font-mono mt-0.5">{auditEvents.length}</div>
+              <div className="text-[#5B6875] text-[11px] mt-0.5">PostgreSQL Immutable Log</div>
             </div>
-            <div className="p-3 bg-white border border-slate-200 rounded border-l-4 border-l-emerald-600 text-xs">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Chain Integrity</div>
-              <div className="text-xl font-bold text-emerald-700 font-mono mt-0.5">100% VERIFIED</div>
-              <div className="text-slate-500 text-[11px] mt-0.5">SHA-256 Sequential Hash Chaining</div>
+            <div className="p-3 bg-white border border-[#DCE3EA] rounded-md border-l-4 border-l-[#18794E] text-xs">
+              <div className="text-[10px] uppercase font-bold text-[#5B6875]">Chain Integrity</div>
+              <div className="text-xl font-bold text-[#18794E] font-mono mt-0.5">100% VERIFIED</div>
+              <div className="text-[#5B6875] text-[11px] mt-0.5">SHA-256 Sequential Hash Chaining</div>
             </div>
-            <div className="p-3 bg-white border border-slate-200 rounded border-l-4 border-l-blue-600 text-xs">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Statutory Standard</div>
-              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">CrPC / BNSS / BSA</div>
-              <div className="text-slate-500 text-[11px] mt-0.5">Admissible Legal Evidence Trail</div>
+            <div className="p-3 bg-white border border-[#DCE3EA] rounded-md border-l-4 border-l-[#2F6B95] text-xs">
+              <div className="text-[10px] uppercase font-bold text-[#5B6875]">Statutory Standard</div>
+              <div className="text-xl font-bold text-[#17212B] font-mono mt-0.5">CrPC / BNSS / BSA</div>
+              <div className="text-[#5B6875] text-[11px] mt-0.5">Admissible Legal Evidence Trail</div>
             </div>
           </div>
 
           {/* Sub-Filters for Audit Event Categories */}
-          <div className="flex flex-wrap gap-1.5 pt-1 pb-1 print:hidden border-b border-slate-200">
+          <div className="flex flex-wrap gap-1.5 pt-1 pb-1 print:hidden border-b border-[#DCE3EA]">
             {[
               { id: 'ALL', label: 'All Events', count: auditEvents.length },
               {
@@ -672,15 +678,15 @@ export const ReportsPage: React.FC = () => {
                 key={cat.id}
                 type="button"
                 onClick={() => setAuditCategory(cat.id as AuditCategory)}
-                className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
                   auditCategory === cat.id
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    ? 'bg-[#123B63] text-white shadow-xs'
+                    : 'bg-[#F6F8FB] text-[#5B6875] hover:bg-[#DCE3EA] hover:text-[#17212B] border border-[#DCE3EA]'
                 }`}
               >
                 <span>{cat.label}</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                  auditCategory === cat.id ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-700'
+                  auditCategory === cat.id ? 'bg-[#2F6B95] text-white' : 'bg-[#DCE3EA] text-[#17212B]'
                 }`}>
                   {cat.count}
                 </span>
@@ -688,10 +694,10 @@ export const ReportsPage: React.FC = () => {
             ))}
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded bg-white shadow-sm">
+          <div className="overflow-x-auto border border-[#DCE3EA] rounded-md bg-white">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider">
+                <tr className="border-b border-[#DCE3EA] bg-[#F6F8FB] text-[#123B63] font-bold uppercase tracking-wider text-[11px]">
                   <th className="p-3">Seq #</th>
                   <th className="p-3">Case Information</th>
                   <th className="p-3">Event Type & Category</th>
@@ -700,22 +706,22 @@ export const ReportsPage: React.FC = () => {
                   <th className="p-3">Timestamp</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 font-medium">
+              <tbody className="divide-y divide-[#DCE3EA] font-medium">
                 {filteredAudit.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-500 italic">
+                    <td colSpan={6} className="p-8 text-center text-[#5B6875] italic">
                       No audit events found matching the selected category or search filter.
                     </td>
                   </tr>
                 ) : (
                   filteredAudit.map((a) => (
-                    <tr key={a.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-mono font-bold text-slate-700">
+                    <tr key={a.id} className="hover:bg-[#F6F8FB] transition-colors">
+                      <td className="p-3 font-mono font-bold text-[#17212B]">
                         #{a.sequence}
                       </td>
                       <td className="p-3">
-                        <div className="font-bold text-slate-900">{a.case?.caseNumber || 'CASE-GENERAL'}</div>
-                        <div className="text-[11px] text-slate-500 line-clamp-1">{a.case?.title || `ID: ${a.caseId?.slice(0, 10)}...`}</div>
+                        <div className="font-bold text-[#17212B]">{a.case?.caseNumber || 'CASE-GENERAL'}</div>
+                        <div className="text-[11px] text-[#5B6875] line-clamp-1">{a.case?.title || `ID: ${a.caseId?.slice(0, 10)}...`}</div>
                       </td>
                       <td className="p-3">
                         {a.eventType === 'DOCUMENT_VERIFIED' && (a.metadata?.status === 'COMPROMISED' || a.metadata?.verificationResult === false) ? (
@@ -738,23 +744,23 @@ export const ReportsPage: React.FC = () => {
                             {a.eventType === 'DOCUMENT_VERIFIED' ? 'DOCUMENT VERIFIED (VALID)' : a.eventType}
                           </Badge>
                         )}
-                        <div className="text-[10px] text-slate-500 mt-0.5">
+                        <div className="text-[10px] text-[#5B6875] mt-0.5">
                           {a.metadata?.documentTitle
                             ? `${a.metadata.documentTitle} — ${a.metadata?.status || 'VERIFIED'}`
                             : getEventCategory(a.eventType)}
                         </div>
                       </td>
                       <td className="p-3">
-                        <div className="font-bold text-slate-900">{a.actor?.name || 'System Operator'}</div>
-                        <div className="text-[11px] text-slate-500 font-mono">{a.actor?.email || 'automated-system'}</div>
+                        <div className="font-bold text-[#17212B]">{a.actor?.name || 'System Operator'}</div>
+                        <div className="text-[11px] text-[#5B6875] font-mono">{a.actor?.email || 'automated-system'}</div>
                       </td>
                       <td className="p-3">
-                        <div className="font-mono text-[11px] text-slate-700 truncate max-w-[160px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title={a.eventHash}>
+                        <div className="font-mono text-[11px] text-[#17212B] truncate max-w-[160px] bg-[#F6F8FB] px-1.5 py-0.5 rounded border border-[#DCE3EA]" title={a.eventHash}>
                           {a.eventHash}
                         </div>
                       </td>
-                      <td className="p-3 text-[11px] text-slate-600 whitespace-nowrap">
-                        <Clock className="w-3 h-3 inline mr-1 text-slate-400" />
+                      <td className="p-3 text-[11px] text-[#5B6875] whitespace-nowrap">
+                        <Clock className="w-3 h-3 inline mr-1 text-[#5B6875]" />
                         {new Date(a.createdAt).toLocaleString()}
                       </td>
                     </tr>

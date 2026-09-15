@@ -323,36 +323,36 @@ export const DocumentDetailsPage: React.FC = () => {
       <div>
         <button
           onClick={() => navigate(ROUTES.PROTECTED.DOCUMENTS.LIST)}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors mb-2 cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#5B6875] hover:text-[#123B63] transition-colors mb-3 cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Documents Binder
         </button>
 
         {downloadError && (
-          <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded text-xs text-red-900 font-medium flex items-center gap-2">
+          <div className="p-3 mb-4 bg-[#FEF3F2] border border-[#FECDCA] rounded-md text-xs text-[#B42318] font-medium flex items-center gap-2">
             <span className="font-bold">⚠ Download Error:</span> {downloadError}
-            <button onClick={() => setDownloadError(null)} className="ml-auto text-red-600 font-bold">✕</button>
+            <button onClick={() => setDownloadError(null)} className="ml-auto text-[#B42318] font-bold">✕</button>
           </div>
         )}
 
-        <div className="p-5 rounded border border-slate-300 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+        <div className="p-5 rounded-md border border-[#DCE3EA] bg-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs border-t-4 border-t-[#123B63]">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
-                {doc.caseNumber}
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="font-mono text-xs font-extrabold text-[#123B63] bg-[#EBF3FA] px-2.5 py-0.5 rounded border border-[#B8D3EA]">
+                CONTAINER: {doc.caseNumber}
               </span>
               <Badge variant="info">v{doc.version}</Badge>
-              <Badge variant="success">VERIFIED</Badge>
+              <Badge variant="success">✓ VERIFIED</Badge>
               {docVersions.length > 1 && (
-                <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded flex items-center gap-1">
-                  <Layers className="w-3 h-3 inline" />
+                <span className="text-[11px] font-bold text-[#123B63] bg-[#F6F8FB] border border-[#DCE3EA] px-2 py-0.5 rounded flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-[#2F6B95] inline" />
                   {docVersions.length} Revisions Logged
                 </span>
               )}
             </div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">{doc.title || doc.documentName}</h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Uploaded by {doc.uploadedBy} on {new Date(doc.uploadedDate).toLocaleString()}
+            <h1 className="text-xl font-bold text-[#123B63] tracking-tight">{doc.title || doc.documentName}</h1>
+            <p className="text-xs text-[#5B6875] font-medium mt-1">
+              Uploaded by <span className="font-semibold text-[#17212B]">{doc.uploadedBy}</span> on <span className="font-mono text-[#5B6875]">{new Date(doc.uploadedDate).toLocaleString()}</span>
             </p>
           </div>
 
@@ -372,7 +372,7 @@ export const DocumentDetailsPage: React.FC = () => {
               isLoading={downloadingVersionNum === doc.versionNumber}
               leftIcon={<Download className="w-3.5 h-3.5" />}
             >
-              Download Current (v{doc.versionNumber})
+              Download (v{doc.versionNumber})
             </Button>
             <Button
               variant="outline"
@@ -397,21 +397,21 @@ export const DocumentDetailsPage: React.FC = () => {
 
       {verified && verificationResult && (
         <div
-          className={`p-4 rounded border text-xs font-medium flex flex-col gap-3 ${
+          className={`p-4 rounded-md border text-xs font-medium flex flex-col gap-3 shadow-2xs ${
             verificationResult.status === 'VALID'
-              ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-              : 'bg-rose-50 border-rose-300 text-rose-900'
+              ? 'bg-[#E6F4ED] border-[#B2DDCE] text-[#18794E]'
+              : 'bg-[#FEF3F2] border-[#FECDCA] text-[#B42318]'
           }`}
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-start gap-2.5">
               {verificationResult.status === 'VALID' ? (
-                <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
+                <ShieldCheck className="w-5 h-5 text-[#18794E] shrink-0 mt-0.5" />
               ) : (
-                <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-[#B42318] shrink-0 mt-0.5" />
               )}
               <div className="space-y-0.5">
-                <div className="font-bold">
+                <div className="font-bold uppercase tracking-wider">
                   {verificationResult.status === 'VALID'
                     ? `DEEP CHAIN AUTHENTICITY VERIFIED: All ${verificationResult.totalChecked} version${verificationResult.totalChecked > 1 ? 's' : ''} match smart contract ledger anchors.`
                     : `CHAIN INTEGRITY COMPROMISED: ${verificationResult.totalCompromised} of ${verificationResult.totalChecked} revision${verificationResult.totalChecked > 1 ? 's' : ''} failed anchor validation!`}
@@ -434,21 +434,21 @@ export const DocumentDetailsPage: React.FC = () => {
 
           {/* Per-version audit summary chips */}
           {verificationResult.versionDetails && verificationResult.versionDetails.length > 0 && (
-            <div className="pt-2 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            <div className="pt-2 border-t border-[#B2DDCE] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               {verificationResult.versionDetails.map((vd) => (
                 <div
                   key={vd.versionNumber}
-                  className={`p-2 rounded border text-[11px] flex items-center justify-between gap-2 ${
+                  className={`p-2 rounded-md border text-[11px] flex items-center justify-between gap-2 ${
                     vd.status === 'VALID'
-                      ? 'bg-emerald-100/60 border-emerald-300 text-emerald-950'
-                      : 'bg-rose-100/80 border-rose-300 text-rose-950 font-bold'
+                      ? 'bg-white border-[#B2DDCE] text-[#18794E]'
+                      : 'bg-white border-[#FECDCA] text-[#B42318] font-bold'
                   }`}
                 >
                   <div className="flex items-center gap-1.5 truncate">
                     {vd.status === 'VALID' ? (
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#18794E] shrink-0" />
                     ) : (
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-700 shrink-0" />
+                      <AlertTriangle className="w-3.5 h-3.5 text-[#B42318] shrink-0" />
                     )}
                     <span className="font-mono font-bold">v{vd.versionNumber}.0</span>
                     <span className="truncate">{vd.status === 'VALID' ? 'Anchor Matched' : 'Mismatch!'}</span>

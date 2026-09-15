@@ -263,12 +263,16 @@ export async function listDocuments(req: AuthenticatedRequest, res: Response) {
 export async function listOrganizationDocuments(req: AuthenticatedRequest, res: Response) {
   try {
     const userId = req.userId!;
-    const superAdmin = await isSuperAdmin(userId);
+    
+    // Execute superadmin check and membership lookup in parallel
+    const [superAdmin, memberships] = await Promise.all([
+      isSuperAdmin(userId),
+      prisma.organizationMembership.findMany({
+        where: { userId, status: "ACTIVE" },
+        select: { organizationId: true }
+      })
+    ]);
 
-    // Get ALL active memberships (not just the first)
-    const memberships = await prisma.organizationMembership.findMany({
-      where: { userId, status: "ACTIVE" }
-    });
     const memberOrgIds = memberships.map((m) => m.organizationId);
 
     const documents = await prisma.document.findMany({

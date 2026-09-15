@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { PackagePlus, Search } from 'lucide-react';
 
 export const EvidencePage: React.FC = () => {
-  const { evidenceList, createEvidence } = useEvidence();
+  const { evidenceList, isLoading, createEvidence } = useEvidence();
   const [search, setSearch] = useState('');
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
@@ -22,12 +22,12 @@ export const EvidencePage: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DCE3EA] pb-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading">
+          <h1 className="text-xl font-extrabold text-[#123B63] tracking-tight font-heading">
             Physical Evidence Registry
           </h1>
-          <p className="text-xs text-slate-600 mt-0.5">
+          <p className="text-xs text-[#5B6875] mt-0.5">
             Tamper-evident physical property log, vault locations, and active chain of custody tracking.
           </p>
         </div>
@@ -41,18 +41,18 @@ export const EvidencePage: React.FC = () => {
         </Button>
       </div>
 
-      <div className="bg-slate-50 p-3 rounded border border-slate-200 flex items-center gap-2">
-        <Search className="w-4 h-4 text-slate-400" />
+      <div className="bg-white p-3 rounded-md border border-[#DCE3EA] flex items-center gap-2 shadow-2xs">
+        <Search className="w-4 h-4 text-[#5B6875]" />
         <input
           type="text"
           placeholder="Filter physical evidence by title, serial number, or item ID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="bg-transparent text-xs text-slate-900 w-full focus:outline-none"
+          className="bg-transparent text-xs text-[#17212B] w-full focus:outline-none placeholder-[#5B6875]/70"
         />
       </div>
 
-      <EvidenceTable evidence={filteredEvidence} />
+      <EvidenceTable evidence={filteredEvidence} isLoading={isLoading} />
 
       <RegisterEvidenceModal
         isOpen={isRegisterModalOpen}

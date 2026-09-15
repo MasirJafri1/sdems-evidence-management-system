@@ -1,28 +1,66 @@
 @import "tailwindcss";
 
+@theme {
+  --color-gov-navy: #123B63;
+  --color-gov-navy-dark: #0E2E4E;
+  --color-gov-text: #17212B;
+  --color-gov-blue: #2F6B95;
+  --color-gov-light-bg: #F6F8FB;
+  --color-gov-surface: #FFFFFF;
+  --color-gov-border: #DCE3EA;
+  --color-gov-muted: #5B6875;
+  --color-gov-success: #18794E;
+  --color-gov-warning: #A66A00;
+  --color-gov-danger: #B42318;
+  --color-gov-gold: #B58B4A;
+}
+
 @layer base {
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #F6F8FB;
+    color: #17212B;
+    -webkit-font-smoothing: antialiased;
   }
 
   h1, h2, h3, h4, h5, h6, .font-heading {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    letter-spacing: -0.025em;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #123B63;
+    letter-spacing: -0.015em;
   }
 
   mark, em {
-    background-color: #fde047;
-    color: #0f172a;
+    background-color: #FEF3C7;
+    color: #92400E;
     padding: 2px 6px;
     border-radius: 4px;
-    font-weight: 800;
+    font-weight: 700;
     font-style: normal;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 }
 
 .page-title {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  color: #123B63;
+  letter-spacing: -0.02em;
 }
+
+/* Institutional custom table & card utilities */
+.gov-card {
+  background-color: #FFFFFF;
+  border: 1px solid #DCE3EA;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px 0 rgba(16, 24, 40, 0.03);
+}
+
+.gov-table-header {
+  background-color: #F6F8FB;
+  color: #5B6875;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #DCE3EA;
+}
+

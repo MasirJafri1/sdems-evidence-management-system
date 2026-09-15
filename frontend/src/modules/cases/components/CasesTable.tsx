@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import type { MockCase } from '../../../mock/cases.mock';
 import { CaseStatusBadge } from './CaseStatusBadge';
 import { Button } from '../../../components/ui/Button';
+import { TableSkeleton } from '../../../components/ui/TableSkeleton';
 import { ROUTES } from '../../../config/routes.config';
-import { FolderArchive, Loader2 } from 'lucide-react';
+import { FolderArchive } from 'lucide-react';
 
 interface CasesTableProps {
   cases: MockCase[];
@@ -15,56 +16,49 @@ export const CasesTable: React.FC<CasesTableProps> = ({ cases, isLoading = false
   const navigate = useNavigate();
 
   return (
-    <div className="overflow-x-auto border border-slate-200 rounded">
+    <div className="overflow-x-auto border border-[#DCE3EA] rounded-md bg-white shadow-2xs">
       <table className="w-full text-left text-xs border-collapse">
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase tracking-wider">
+          <tr className="border-b border-[#DCE3EA] bg-[#F6F8FB] text-[#5B6875] font-bold uppercase tracking-wider">
             <th className="p-3">Case ID & Ref</th>
             <th className="p-3">Title & Type</th>
             <th className="p-3">Status</th>
             <th className="p-3">Organization & Lead</th>
             <th className="p-3 text-center">Items</th>
-            <th className="p-3">Action</th>
+            <th className="p-3 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200 font-medium bg-white">
+        <tbody className="divide-y divide-[#DCE3EA] font-medium bg-white">
           {isLoading ? (
-            <tr>
-              <td colSpan={6} className="p-8 text-center text-slate-500">
-                <div className="flex items-center justify-center gap-2 font-semibold">
-                  <Loader2 className="w-4 h-4 animate-spin text-slate-700" />
-                  <span>Loading case registry from database...</span>
-                </div>
-              </td>
-            </tr>
+            <TableSkeleton rows={5} cols={6} />
           ) : cases.length === 0 ? (
             <tr>
-              <td colSpan={6} className="p-8 text-center text-slate-500">
+              <td colSpan={6} className="p-8 text-center text-[#5B6875] italic">
                 No official case records match the specified filters.
               </td>
             </tr>
           ) : (
             cases.map((c) => (
-              <tr key={c.id} className="hover:bg-slate-50">
+              <tr key={c.id} className="hover:bg-[#F6F8FB] transition-colors">
                 <td className="p-3 space-y-0.5">
-                  <div className="font-mono font-bold text-slate-900">{c.caseNumber}</div>
-                  <div className="text-[11px] text-slate-500 font-mono">{c.referenceNumber}</div>
+                  <div className="font-mono font-bold text-[#123B63]">{c.caseNumber}</div>
+                  <div className="text-[11px] text-[#5B6875] font-mono">{c.referenceNumber}</div>
                 </td>
                 <td className="p-3 space-y-0.5">
-                  <div className="font-bold text-slate-900">{c.title}</div>
-                  <div className="text-[11px] text-slate-500">{c.caseType}</div>
+                  <div className="font-semibold text-[#17212B]">{c.title}</div>
+                  <div className="text-[11px] text-[#5B6875]">{c.caseType}</div>
                 </td>
                 <td className="p-3">
                   <CaseStatusBadge status={c.status} />
                 </td>
                 <td className="p-3 space-y-0.5">
-                  <div className="text-slate-800 font-semibold">{c.organization}</div>
-                  <div className="text-[11px] text-slate-500">{c.leadOfficer}</div>
+                  <div className="text-[#17212B] font-semibold">{c.organization}</div>
+                  <div className="text-[11px] text-[#5B6875]">{c.leadOfficer}</div>
                 </td>
                 <td className="p-3 text-center font-mono font-bold">
-                  <span className="text-blue-800">{c.evidenceCount} Evid</span> / <span className="text-slate-700">{c.documentCount} Docs</span>
+                  <span className="text-[#2F6B95]">{c.evidenceCount} Evid</span> / <span className="text-[#5B6875]">{c.documentCount} Docs</span>
                 </td>
-                <td className="p-3">
+                <td className="p-3 text-right">
                   <Button
                     variant="outline"
                     size="sm"

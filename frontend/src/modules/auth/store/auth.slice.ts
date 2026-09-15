@@ -6,6 +6,7 @@ export interface User {
   email: string;
   isActive: boolean;
   isSuperAdmin?: boolean;
+  role?: string;
   organizationId?: string | null;
   organization?: {
     id: string;

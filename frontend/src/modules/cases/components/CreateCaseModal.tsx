@@ -128,7 +128,7 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Initialize New Official Case File" maxWidth="lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 text-xs">
         <Input
           label="Case Title"
           placeholder="e.g. Operation Financial Trace"
@@ -140,16 +140,16 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-700 uppercase">
+              <label className="text-xs font-semibold text-[#17212B] uppercase tracking-wider">
                 Global Case ID (Auto-Generated)
               </label>
               <button
                 type="button"
                 onClick={handleRegenerateIds}
-                className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                className="text-[11px] font-semibold text-[#2F6B95] hover:underline flex items-center gap-1 cursor-pointer"
                 title="Regenerate unique ID & Ref"
               >
-                <RefreshCw className="w-3 h-3" /> Regenerate
+                <RefreshCw className="w-3 h-3 text-[#2F6B95]" /> Regenerate
               </button>
             </div>
             <div className="relative">
@@ -157,18 +157,18 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                 type="text"
                 readOnly
                 value={caseNumber}
-                className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded text-sm text-slate-800 font-mono font-bold cursor-not-allowed"
+                className="w-full px-3 py-2 bg-[#F6F8FB] border border-[#DCE3EA] rounded-md text-xs text-[#17212B] font-mono font-bold cursor-not-allowed"
               />
-              <Sparkles className="w-4 h-4 text-amber-500 absolute right-3 top-2.5" />
+              <Sparkles className="w-4 h-4 text-[#B58B4A] absolute right-3 top-2.5" />
             </div>
-            <span className="text-[11px] text-slate-500">
+            <span className="text-[11px] text-[#5B6875]">
               Unique ID generated combining Org, Title & Timestamp.
             </span>
           </div>
 
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-700 uppercase">
+              <label className="text-xs font-semibold text-[#17212B] uppercase tracking-wider">
                 Dept Reference No (Auto-Generated)
               </label>
             </div>
@@ -177,11 +177,11 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
                 type="text"
                 readOnly
                 value={referenceNumber}
-                className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded text-sm text-slate-800 font-mono font-bold cursor-not-allowed"
+                className="w-full px-3 py-2 bg-[#F6F8FB] border border-[#DCE3EA] rounded-md text-xs text-[#17212B] font-mono font-bold cursor-not-allowed"
               />
-              <Sparkles className="w-4 h-4 text-amber-500 absolute right-3 top-2.5" />
+              <Sparkles className="w-4 h-4 text-[#B58B4A] absolute right-3 top-2.5" />
             </div>
-            <span className="text-[11px] text-slate-500">
+            <span className="text-[11px] text-[#5B6875]">
               Department ref format based on Org & Case Name.
             </span>
           </div>
@@ -196,17 +196,17 @@ export const CreateCaseModal: React.FC<CreateCaseModalProps> = ({
         />
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-700 uppercase">Case Description & Scope</label>
+          <label className="text-xs font-semibold text-[#17212B] uppercase tracking-wider">Case Description & Scope</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="p-3 bg-white border border-slate-300 rounded text-sm min-h-[80px] text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-800"
+            className="p-3 bg-white border border-[#DCE3EA] rounded-md text-xs min-h-[80px] text-[#17212B] focus:outline-none focus:ring-1 focus:ring-[#123B63]"
             placeholder="Provide investigative background..."
             required
           />
         </div>
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+        <div className="flex justify-end gap-3 pt-3 border-t border-[#DCE3EA]">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" variant="primary" leftIcon={<FolderPlus className="w-4 h-4" />}>
             Initialize Case File

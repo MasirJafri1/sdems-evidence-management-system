@@ -21,11 +21,11 @@ export const Badge: React.FC<BadgeProps> = ({
   className = '',
 }) => {
   const variants: Record<BadgeVariant, string> = {
-    success: 'bg-emerald-50 text-emerald-800 border-emerald-300',
-    warning: 'bg-amber-50 text-amber-900 border-amber-300',
-    danger: 'bg-red-50 text-red-800 border-red-300',
-    info: 'bg-blue-50 text-blue-800 border-blue-300',
-    neutral: 'bg-slate-100 text-slate-700 border-slate-300',
+    success: 'bg-[#E6F4ED] text-[#18794E] border-[#B2DDCE] font-semibold',
+    warning: 'bg-[#FFF8E6] text-[#A66A00] border-[#FDE68A] font-semibold',
+    danger: 'bg-[#FEF3F2] text-[#B42318] border-[#FECDCA] font-semibold',
+    info: 'bg-[#EBF3FA] text-[#2F6B95] border-[#B8D3EA] font-semibold',
+    neutral: 'bg-[#F6F8FB] text-[#5B6875] border-[#DCE3EA] font-medium',
   };
 
   const sizes = {

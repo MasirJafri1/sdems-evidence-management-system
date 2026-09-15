@@ -142,19 +142,19 @@ export const VerificationForm: React.FC<VerificationFormProps> = ({
   return (
     <form onSubmit={handleExecuteVerification} className="space-y-4 text-xs">
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+        <div className="p-3 bg-[#FEF3F2] border border-[#FECDCA] text-[#B42318] rounded-md flex items-center gap-2 font-medium">
+          <AlertCircle className="w-4 h-4 shrink-0 text-[#B42318]" />
           <span>{error}</span>
         </div>
       )}
 
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="font-bold text-slate-700 uppercase">Select Registered Evidence / Document</label>
+          <label className="text-[11px] font-bold text-[#123B63] uppercase tracking-wider">Select Registered Evidence Document</label>
           <button
             type="button"
             onClick={fetchDocs}
-            className="text-[11px] text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-semibold cursor-pointer"
+            className="text-[11px] text-[#2F6B95] hover:text-[#123B63] flex items-center gap-1 font-bold cursor-pointer"
             title="Refresh document catalog"
           >
             <RefreshCw className={`w-3 h-3 ${loadingDocs ? 'animate-spin' : ''}`} /> Refresh
@@ -167,7 +167,7 @@ export const VerificationForm: React.FC<VerificationFormProps> = ({
             setSelectedDocId(e.target.value);
             setSelectedFile(null);
           }}
-          className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full px-3 py-2 bg-white border border-[#DCE3EA] rounded-md text-xs text-[#17212B] focus:outline-none focus:ring-2 focus:ring-[#123B63]/20 focus:border-[#123B63] shadow-2xs font-medium truncate"
         >
           {documents.length === 0 ? (
             <option value="">No documents found in registry</option>
@@ -182,24 +182,28 @@ export const VerificationForm: React.FC<VerificationFormProps> = ({
       </div>
 
       {selectedVersion && (
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-1.5 font-mono text-[11px]">
-          <div className="flex items-center justify-between text-slate-600">
-            <span>Case Container:</span>
-            <span className="font-bold text-slate-900">{selectedDoc?.case?.caseNumber || 'N/A'}</span>
+        <div className="p-3 bg-[#F6F8FB] border border-[#DCE3EA] rounded-md space-y-2 text-[11px] font-sans">
+          <div className="flex items-center justify-between gap-2 text-[#5B6875]">
+            <span className="shrink-0 font-medium">Case Container:</span>
+            <span className="font-mono font-bold text-[#123B63] truncate">{selectedDoc?.case?.caseNumber || 'N/A'}</span>
           </div>
-          <div className="flex items-center justify-between text-slate-600">
-            <span>Storage Key:</span>
-            <span className="text-slate-800 font-semibold">{selectedVersion.originalFileName}</span>
+          <div className="flex flex-col gap-0.5 text-[#5B6875]">
+            <span className="font-medium">Storage Key:</span>
+            <span className="font-mono text-[#17212B] font-semibold break-all bg-white px-2.5 py-1 rounded border border-[#DCE3EA] text-[10px]">
+              {selectedVersion.originalFileName}
+            </span>
           </div>
-          <div className="flex items-center justify-between text-slate-600">
-            <span>Anchor Receipt:</span>
-            <span className="text-emerald-700 font-bold">{selectedVersion.blockchainAnchor?.anchorId || 'ANCHORED'}</span>
+          <div className="flex flex-col gap-0.5 text-[#5B6875]">
+            <span className="font-medium">Anchor Receipt:</span>
+            <span className="font-mono text-[#18794E] font-bold break-all bg-[#E6F4ED] px-2.5 py-1 rounded border border-[#B2DDCE] text-[10px]">
+              {selectedVersion.blockchainAnchor?.anchorId || 'ANCHORED'}
+            </span>
           </div>
         </div>
       )}
 
-      <div className="pt-2 border-t border-slate-200">
-        <label className="font-bold text-slate-700 uppercase block mb-1">
+      <div className="pt-2 border-t border-[#DCE3EA]">
+        <label className="text-[11px] font-bold text-[#123B63] uppercase block mb-1">
           Or Select Local Binary File
         </label>
         <div className="relative">
@@ -210,10 +214,10 @@ export const VerificationForm: React.FC<VerificationFormProps> = ({
                 setSelectedFile(e.target.files[0]);
               }
             }}
-            className="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+            className="w-full text-xs text-[#5B6875] file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border file:border-[#DCE3EA] file:text-xs file:font-semibold file:bg-[#F6F8FB] file:text-[#123B63] hover:file:bg-[#EBF3FA] cursor-pointer"
           />
         </div>
-        <p className="text-[10px] text-slate-500 mt-1">
+        <p className="text-[10px] text-[#5B6875] mt-1">
           Upload any local disk dump, PDF, or exhibit to test against the immutable registry.
         </p>
       </div>
@@ -221,10 +225,10 @@ export const VerificationForm: React.FC<VerificationFormProps> = ({
       <Button
         type="submit"
         variant="primary"
-        size="lg"
+        size="md"
         className="w-full"
         isLoading={isLoading}
-        leftIcon={<ShieldCheck className="w-4 h-4 text-emerald-400" />}
+        leftIcon={<ShieldCheck className="w-4 h-4 text-white" />}
       >
         Execute Dual-Hash Comparison
       </Button>

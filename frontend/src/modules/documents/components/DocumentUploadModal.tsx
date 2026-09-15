@@ -68,20 +68,20 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Secure Document Upload & Anchoring Pipeline" maxWidth="lg">
       {!uploadedInfo ? (
-        <div className="space-y-4">
+        <div className="space-y-4 text-xs">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <div className="p-3 bg-[#B42318]/10 border border-[#B42318]/30 text-[#B42318] rounded-md text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-[#B42318] shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-slate-700 uppercase">Target Case Registry</label>
+            <label className="text-xs font-semibold text-[#17212B] uppercase tracking-wider">Target Case Registry</label>
             <select
               value={activeCaseId}
               onChange={(e) => setSelectedCaseId(e.target.value)}
-              className="px-3 py-2 bg-white border border-slate-300 rounded text-xs text-slate-900 font-semibold"
+              className="px-3 py-2 bg-white border border-[#DCE3EA] rounded-md text-xs text-[#17212B] font-semibold focus:outline-none focus:ring-1 focus:ring-[#123B63]"
             >
               {cases.length > 0 ? (
                 cases.map((c) => (
@@ -109,21 +109,21 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             placeholder="e.g. Memory Dump, Forensic Analysis Exhibit, Seizure Report..."
           />
 
-          <div className="border-2 border-dashed border-slate-300 rounded p-6 text-center bg-slate-50 relative">
+          <div className="border-2 border-dashed border-[#DCE3EA] rounded-md p-6 text-center bg-[#F6F8FB] relative hover:bg-white transition-colors">
             <input
               type="file"
               onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])}
               className="absolute inset-0 opacity-0 cursor-pointer"
             />
-            <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+            <Upload className="w-8 h-8 text-[#5B6875] mx-auto mb-2" />
             {file ? (
-              <div className="text-xs font-bold text-slate-900">{file.name} ({(file.size / 1024).toFixed(1)} KB)</div>
+              <div className="text-xs font-bold text-[#17212B]">{file.name} ({(file.size / 1024).toFixed(1)} KB)</div>
             ) : (
-              <div className="text-xs font-medium text-slate-600">Click or drag any evidence binary (video, audio, pdf, image, zip, tar, raw disk...) to initiate upload</div>
+              <div className="text-xs font-medium text-[#5B6875]">Click or drag any evidence binary (video, audio, pdf, image, zip, tar, raw disk...) to initiate upload</div>
             )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+          <div className="flex justify-end gap-3 pt-3 border-t border-[#DCE3EA]">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
             <Button
               variant="primary"
@@ -137,11 +137,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         </div>
       ) : (
         <div className="py-6 space-y-4 text-center text-xs">
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded space-y-2">
-            <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-            <h4 className="font-bold text-emerald-900 text-sm">Committed to Secure Storage & Blockchain Anchored!</h4>
-            <p className="text-emerald-700 font-mono text-[11px] truncate">SHA-256: {uploadedInfo.sha256}</p>
-            <p className="text-emerald-800 font-bold">{uploadedInfo.anchorId}</p>
+          <div className="p-4 bg-[#18794E]/10 border border-[#18794E]/30 rounded-md space-y-2">
+            <CheckCircle2 className="w-8 h-8 text-[#18794E] mx-auto" />
+            <h4 className="font-bold text-[#18794E] text-sm">Committed to Secure Storage & Blockchain Anchored!</h4>
+            <p className="text-[#18794E]/80 font-mono text-[11px] truncate">SHA-256: {uploadedInfo.sha256}</p>
+            <p className="text-[#18794E] font-bold font-mono">{uploadedInfo.anchorId}</p>
             <Button variant="primary" onClick={handleFinish} className="mt-2">Complete Pipeline</Button>
           </div>
         </div>

@@ -12,29 +12,29 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full flex flex-col gap-1">
         {label && (
-          <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+          <label className="text-[11px] font-bold text-[#123B63] uppercase tracking-wider">
             {label}
           </label>
         )}
         <div className="relative flex items-center group">
           {leftIcon && (
-            <div className="absolute left-3.5 text-slate-400 group-focus-within:text-amber-600 transition-colors pointer-events-none flex items-center">
+            <div className="absolute left-3 text-[#5B6875] group-focus-within:text-[#123B63] transition-colors pointer-events-none flex items-center">
               {leftIcon}
             </div>
           )}
           <input
             ref={ref}
-            className={`w-full rounded-lg bg-slate-50/50 border text-slate-900 placeholder-slate-400 text-sm px-4 py-2.5 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 focus:bg-white shadow-sm hover:border-slate-300 ${
-              leftIcon ? 'pl-10' : ''
+            className={`w-full rounded-md bg-white border text-[#17212B] placeholder-[#5B6875]/60 text-xs px-3.5 py-2 transition-colors focus:outline-none focus:ring-2 focus:ring-[#123B63]/20 focus:border-[#123B63] shadow-2xs ${
+              leftIcon ? 'pl-9' : ''
             } ${
-              error ? 'border-red-600 focus:ring-red-300/50' : 'border-slate-200'
+              error ? 'border-[#B42318] focus:ring-[#B42318]/20' : 'border-[#DCE3EA]'
             } ${className}`}
             {...props}
           />
         </div>
-        {error && <span className="text-xs text-red-600 font-medium">{error}</span>}
+        {error && <span className="text-xs text-[#B42318] font-medium">{error}</span>}
         {helperText && !error && (
-          <span className="text-xs text-slate-500">{helperText}</span>
+          <span className="text-xs text-[#5B6875]">{helperText}</span>
         )}
       </div>
     );

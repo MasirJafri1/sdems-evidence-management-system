@@ -29,12 +29,12 @@ export const CasesPage: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DCE3EA] pb-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading">
+          <h1 className="text-xl font-extrabold text-[#123B63] tracking-tight">
             Investigative Case Registry
           </h1>
-          <p className="text-xs text-slate-600 mt-0.5">
+          <p className="text-xs text-[#5B6875] mt-0.5">
             Official government repository of active digital evidence cases and authorized containers.
           </p>
         </div>
@@ -43,20 +43,22 @@ export const CasesPage: React.FC = () => {
           <Button
             variant="outline"
             onClick={() => setIsRequestAccessOpen(true)}
+            size="sm"
           >
-            Request External Access
+            Request Access
           </Button>
           <Button
             variant="primary"
             onClick={() => setIsModalOpen(true)}
-            leftIcon={<FolderPlus className="w-4 h-4" />}
+            leftIcon={<FolderPlus className="w-3.5 h-3.5" />}
+            size="sm"
           >
-            Initialize New Case
+            Create Case
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded border border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-md border border-[#DCE3EA] shadow-2xs">
         <CaseSearch value={search} onChange={setSearch} />
         <CaseFilters
           statusFilter={statusFilter}

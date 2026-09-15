@@ -38,10 +38,10 @@ export const TransferAcceptModal: React.FC<TransferAcceptModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Accept Pending Custody Handshake" maxWidth="md">
       <div className="space-y-4 text-xs">
-        <div className="p-3 bg-slate-50 border rounded space-y-1">
-          <div className="font-bold text-slate-900">{transfer?.itemTitle || 'Evidence Item'} ({transfer?.evidenceNumber})</div>
-          <div className="text-slate-600">Relinquishing Officer: {transfer?.fromOfficer || 'Unknown'}</div>
-          <div className="text-slate-500 italic">Purpose: {transfer?.reason || 'No reason provided'}</div>
+        <div className="p-3 bg-[#F6F8FB] border border-[#DCE3EA] rounded-md space-y-1">
+          <div className="font-bold text-[#17212B]">{transfer?.itemTitle || 'Evidence Item'} ({transfer?.evidenceNumber})</div>
+          <div className="text-[#5B6875]">Relinquishing Officer: {transfer?.fromOfficer || 'Unknown'}</div>
+          <div className="text-[#5B6875] italic">Purpose: {transfer?.reason || 'No reason provided'}</div>
         </div>
 
         <Input
@@ -51,12 +51,12 @@ export const TransferAcceptModal: React.FC<TransferAcceptModalProps> = ({
           placeholder="e.g. Seal compromised, item not matched"
         />
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+        <div className="flex justify-end gap-3 pt-3 border-t border-[#DCE3EA]">
           <Button
             type="button"
             variant="outline"
             onClick={handleReject}
-            leftIcon={<XCircle className="w-4 h-4 text-rose-600" />}
+            leftIcon={<XCircle className="w-4 h-4 text-[#B42318]" />}
           >
             Reject Transfer
           </Button>
@@ -64,7 +64,7 @@ export const TransferAcceptModal: React.FC<TransferAcceptModalProps> = ({
             type="button"
             variant="primary"
             onClick={handleAccept}
-            leftIcon={<CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+            leftIcon={<CheckCircle2 className="w-4 h-4 text-emerald-300" />}
           >
             Accept Custody & Sign Ledger
           </Button>

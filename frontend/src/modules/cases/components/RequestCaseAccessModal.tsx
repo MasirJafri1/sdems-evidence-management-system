@@ -40,9 +40,9 @@ export const RequestCaseAccessModal: React.FC<RequestCaseAccessModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Request External Case Access" maxWidth="sm">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 text-xs font-medium flex items-start gap-2">
-          <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+      <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <div className="p-3 bg-[#A66A00]/10 border border-[#A66A00]/30 rounded-md text-[#A66A00] font-medium flex items-start gap-2">
+          <ShieldAlert className="w-4 h-4 text-[#A66A00] shrink-0 mt-0.5" />
           <p>
             You are requesting access to a case outside of your immediate jurisdiction. 
             The Case Administrator must review and approve this request.
@@ -50,29 +50,29 @@ export const RequestCaseAccessModal: React.FC<RequestCaseAccessModalProps> = ({
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-xs font-bold text-slate-700 uppercase">Case Number *</label>
+          <label className="block text-xs font-bold text-[#17212B] uppercase tracking-wider">Case Number *</label>
           <input
             type="text"
             required
             value={caseNumber}
             onChange={(e) => setCaseNumber(e.target.value)}
             placeholder="e.g. CASE-2026-Testing"
-            className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800 font-mono"
+            className="w-full px-3 py-2 bg-white border border-[#DCE3EA] rounded-md text-xs text-[#17212B] focus:outline-none focus:ring-1 focus:ring-[#123B63] font-mono"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-xs font-bold text-slate-700 uppercase">Reason for Access</label>
+          <label className="block text-xs font-bold text-[#17212B] uppercase tracking-wider">Reason for Access</label>
           <textarea
             rows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Briefly state your purpose..."
-            className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-800"
+            className="w-full px-3 py-2 bg-white border border-[#DCE3EA] rounded-md text-xs text-[#17212B] focus:outline-none focus:ring-1 focus:ring-[#123B63]"
           />
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+        <div className="flex justify-end gap-3 pt-4 border-t border-[#DCE3EA]">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
