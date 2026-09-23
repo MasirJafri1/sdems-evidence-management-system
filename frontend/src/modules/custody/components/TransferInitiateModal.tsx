@@ -65,6 +65,30 @@ export const TransferInitiateModal: React.FC<TransferInitiateModalProps> = ({
     }
   };
 
+  const handleQuickFillDemo = async () => {
+    const targetEmail = 'lab@cfsl.gov.in';
+    setToCustodianInput(targetEmail);
+    setReason('Official transfer for bit-stream acquisition and forensic malware analysis under Section 63 BSA.');
+    setIsLookingUp(true);
+    setLookupResult('');
+    setLookupError('');
+    setVerifiedUserId('');
+    try {
+      const res = await apiClient.post('/organizations/users/lookup', { query: targetEmail });
+      if (res.data.found && res.data.user) {
+        const u = res.data.user;
+        const orgName = u.memberships?.[0]?.organization?.name || 'Central Forensic Science Laboratory';
+        setToOrg(orgName);
+        setVerifiedUserId(u.id);
+        setLookupResult(`Verified: ${u.name} (${orgName})`);
+      }
+    } catch (err: any) {
+      setLookupError(err.response?.data?.message || 'Officer not found. Please register CFSL admin first.');
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEvidence || !verifiedUserId || !toOrg || !reason) {
@@ -100,6 +124,18 @@ export const TransferInitiateModal: React.FC<TransferInitiateModalProps> = ({
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Quick Demo Fill */}
+        <div className="flex items-center justify-between p-2 bg-[#F6F8FB] border border-[#DCE3EA] rounded-md">
+          <span className="text-[10px] font-bold text-[#5B6875] uppercase tracking-wider">⚡ Quick Demo Fill:</span>
+          <button
+            type="button"
+            onClick={handleQuickFillDemo}
+            className="px-2.5 py-1 bg-white hover:bg-[#EBF3FA] border border-[#2F6B95]/40 text-[#123B63] rounded font-bold text-xs transition-colors cursor-pointer"
+          >
+            ⚡ Auto-Fill CFSL Transfer Handshake
+          </button>
         </div>
 
         <div className="flex flex-col gap-1">

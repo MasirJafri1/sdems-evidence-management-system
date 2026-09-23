@@ -95,6 +95,27 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             </select>
           </div>
 
+          {/* Quick Demo Fill */}
+          <div className="flex items-center justify-between p-2 bg-[#F6F8FB] border border-[#DCE3EA] rounded-md">
+            <span className="text-[10px] font-bold text-[#5B6875] uppercase tracking-wider">⚡ Quick Demo Fill:</span>
+            <button
+              type="button"
+              onClick={() => {
+                setTitle('Suspect Command & Control Server Log');
+                setDocumentType('Forensic Extraction Report');
+                if (!file) {
+                  const demoContent = '2026-09-16 03:14:22 [ALERT] Unauthorized root login detected from IP 198.51.100.42 via port 22.\n2026-09-16 03:14:23 [ALERT] Target directory /var/data/vault copied via SCP.\n2026-09-16 03:14:24 [SYS] Session terminated by remote host.';
+                  const blob = new Blob([demoContent], { type: 'text/plain' });
+                  const demoFile = new File([blob], 'server_log.txt', { type: 'text/plain' });
+                  setFile(demoFile);
+                }
+              }}
+              className="px-2.5 py-1 bg-white hover:bg-[#EBF3FA] border border-[#2F6B95]/40 text-[#123B63] rounded font-bold text-xs transition-colors cursor-pointer"
+            >
+              ⚡ Auto-Fill Exhibit Details & Attach Log
+            </button>
+          </div>
+
           <Input
             label="Document Title"
             value={title}

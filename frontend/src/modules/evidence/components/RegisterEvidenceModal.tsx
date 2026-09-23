@@ -98,6 +98,23 @@ export const RegisterEvidenceModal: React.FC<RegisterEvidenceModalProps> = ({
           </select>
         </div>
 
+        {/* Quick Demo Fill */}
+        <div className="flex items-center justify-between p-2 bg-[#F6F8FB] border border-[#DCE3EA] rounded-md">
+          <span className="text-[10px] font-bold text-[#5B6875] uppercase tracking-wider">⚡ Quick Demo Fill:</span>
+          <button
+            type="button"
+            onClick={() => {
+              setTitle('Samsung NVMe SSD 1TB (Tamper Seal #774B)');
+              setEvidenceType('Solid State Storage Device');
+              setSerialNumber('SN-NVME-88492-DELHI');
+              setStorageLocation('CFSL Vault Locker 1A (Anti-Static Bag)');
+            }}
+            className="px-2.5 py-1 bg-white hover:bg-[#EBF3FA] border border-[#2F6B95]/40 text-[#123B63] rounded font-bold text-xs transition-colors cursor-pointer"
+          >
+            ⚡ Auto-Fill Seized SSD Hardware
+          </button>
+        </div>
+
         <Input
           label="Item Description / Title"
           value={title}

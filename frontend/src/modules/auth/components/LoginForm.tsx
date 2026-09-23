@@ -93,7 +93,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         <span className="text-[10px] font-bold text-[#5B6875] uppercase tracking-wider block">
           ⚡ Quick Demo Login Credentials
         </span>
-        <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="grid grid-cols-3 gap-2 text-xs">
           <button
             type="button"
             onClick={() => {
@@ -103,21 +103,34 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             }}
             className="p-2 border border-[#DCE3EA] bg-[#F6F8FB] hover:bg-[#EBF3FA] rounded-md text-left transition-colors cursor-pointer"
           >
-            <div className="font-bold text-[#123B63]">🛡️ Super Admin</div>
-            <div className="text-[10px] text-[#5B6875] font-mono">GOV-SUPERADMIN</div>
+            <div className="font-bold text-[#123B63] text-[11px]">🛡️ Super Admin</div>
+            <div className="text-[9px] text-[#5B6875] font-mono">GOV-SUPERADMIN</div>
           </button>
 
           <button
             type="button"
             onClick={() => {
-              setOrgCode('CBI-001');
-              setEmail('admin@cbi.gov.in');
-              setPassword('Password123!');
+              setOrgCode('CBI-HQ');
+              setEmail('investigator@cbi.gov.in');
+              setPassword('Investigator@123');
             }}
             className="p-2 border border-[#DCE3EA] bg-[#F6F8FB] hover:bg-[#EBF3FA] rounded-md text-left transition-colors cursor-pointer"
           >
-            <div className="font-bold text-[#123B63]">🏢 CBI Org Admin</div>
-            <div className="text-[10px] text-[#5B6875] font-mono">CBI-001</div>
+            <div className="font-bold text-[#123B63] text-[11px]">🏢 CBI Officer</div>
+            <div className="text-[9px] text-[#5B6875] font-mono">CBI-HQ</div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOrgCode('CFSL-DELHI');
+              setEmail('lab@cfsl.gov.in');
+              setPassword('LabUser@123');
+            }}
+            className="p-2 border border-[#DCE3EA] bg-[#F6F8FB] hover:bg-[#EBF3FA] rounded-md text-left transition-colors cursor-pointer"
+          >
+            <div className="font-bold text-[#123B63] text-[11px]">🔬 CFSL Lab</div>
+            <div className="text-[9px] text-[#5B6875] font-mono">CFSL-DELHI</div>
           </button>
         </div>
       </div>

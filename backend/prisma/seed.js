@@ -37,7 +37,7 @@ async function seedSuperAdmin() {
   try {
     console.log("🧹 Clearing all existing database tables...");
     await prisma.$executeRawUnsafe(
-      `TRUNCATE TABLE "CustodyEvent", "CustodyTransfer", "Evidence", "BlockchainAnchor", "DocumentVersion", "Document", "CasePermission", "CaseParticipant", "CaseAccessRequest", "AuditEvent", "RolePermission", "OrganizationMembership", "Role", "User", "Organization", "Permission" CASCADE;`
+      `TRUNCATE TABLE "CustodyEvent", "CustodyTransfer", "Evidence", "BlockchainAnchor", "DocumentVersion", "Document", "CasePermission", "CaseParticipant", "CaseAccessRequest", "AuditEvent", "Case", "RolePermission", "OrganizationMembership", "Role", "User", "Organization", "Permission" CASCADE;`
     );
     console.log("✅ Database tables successfully cleared!\n");
 

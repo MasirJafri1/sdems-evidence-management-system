@@ -417,6 +417,39 @@ export const OrganizationsPage: React.FC = () => {
             <strong>Compulsory Admin Assignment:</strong> Every new organization must be assigned an Organization Admin. You can either lookup an existing registered officer by Email/ID or create a new user on the go.
           </div>
 
+          {/* Quick Demo Fill Buttons */}
+          <div className="flex items-center gap-2 p-2 bg-[#F6F8FB] border border-[#DCE3EA] rounded-md">
+            <span className="text-[10px] font-bold text-[#5B6875] uppercase tracking-wider">⚡ Quick Demo Presets:</span>
+            <button
+              type="button"
+              onClick={() => {
+                setNewOrgName('Central Bureau of Investigation');
+                setNewOrgCode('CBI-HQ');
+                setAdminType('NEW');
+                setAdminName('Inspector Vikram Rathore');
+                setAdminEmail('investigator@cbi.gov.in');
+                setAdminPassword('Investigator@123');
+              }}
+              className="px-2 py-1 bg-white hover:bg-[#EBF3FA] border border-[#2F6B95]/40 text-[#123B63] rounded font-bold text-xs transition-colors cursor-pointer"
+            >
+              🏢 Fill CBI-HQ
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNewOrgName('Central Forensic Science Laboratory');
+                setNewOrgCode('CFSL-DELHI');
+                setAdminType('NEW');
+                setAdminName('Dr. Ananya Sharma');
+                setAdminEmail('lab@cfsl.gov.in');
+                setAdminPassword('LabUser@123');
+              }}
+              className="px-2 py-1 bg-white hover:bg-[#EBF3FA] border border-[#2F6B95]/40 text-[#123B63] rounded font-bold text-xs transition-colors cursor-pointer"
+            >
+              🔬 Fill CFSL-DELHI
+            </button>
+          </div>
+
           <Input
             label="Organization Name"
             value={newOrgName}
