@@ -32,6 +32,11 @@
 
 ---
 
+
+<div align="center">
+
+---
+
 ## 👥 Team ThreeSixNine
 
 - **Shreykumar Patel**
@@ -44,26 +49,27 @@
 ---
 
 ## 📑 Table of Contents
+
 - [Executive Overview](#-executive-overview)
 - [The Problem vs. How SDEMS Solves It](#-the-problem-vs-how-sdems-solves-it)
-- [System Architecture & The Data Triad](#-system-architecture--the-data-triad)
-- [Evidence Cycles & Data Flow Diagrams](#-evidence-cycles--data-flow-diagrams)
-  - [1. Evidence Ingestion & Anchoring Flow](#1-evidence-ingestion--anchoring-flow)
-  - [2. Custody Handshake & Hash Verification Flow](#2-custody-handshake--hash-verification-flow)
+- [System Architecture &amp; The Data Triad](#-system-architecture--the-data-triad)
+- [Evidence Cycles &amp; Data Flow Diagrams](#-evidence-cycles--data-flow-diagrams)
+  - [1. Evidence Ingestion &amp; Anchoring Flow](#1-evidence-ingestion--anchoring-flow)
+  - [2. Custody Handshake &amp; Hash Verification Flow](#2-custody-handshake--hash-verification-flow)
   - [3. Append-Only Cryptographic Audit Trail](#3-append-only-cryptographic-audit-trail)
-- [Technical Stack & Component Breakdown](#-technical-stack--component-breakdown)
-- [Security, Cryptography & Legal Admissibility](#-security-cryptography--legal-admissibility)
-  - [Solving the "DBA Dilemma"](#solving-the-dba-dilemma)
+- [Technical Stack &amp; Component Breakdown](#-technical-stack--component-breakdown)
+- [Security, Cryptography &amp; Legal Admissibility](#-security-cryptography--legal-admissibility)
+  - [Solving the &#34;DBA Dilemma&#34;](#solving-the-dba-dilemma)
   - [Cryptographic Formulations](#cryptographic-formulations)
   - [Zero-Trust Access Control (RBAC + ABAC)](#zero-trust-access-control-rbac--abac)
 - [Current Implementation vs. Future Roadmap](#-current-implementation-vs-future-roadmap)
-- [Feasibility, Viability & Mitigation Strategies](#-feasibility-viability--mitigation-strategies)
+- [Feasibility, Viability &amp; Mitigation Strategies](#-feasibility-viability--mitigation-strategies)
 - [Competitive Benchmarking Matrix](#-competitive-benchmarking-matrix)
-- [Impact & Stakeholder Benefits](#-impact--stakeholder-benefits)
-- [Research Citations & Scientific References](#-research-citations--scientific-references)
+- [Impact &amp; Stakeholder Benefits](#-impact--stakeholder-benefits)
+- [Research Citations &amp; Scientific References](#-research-citations--scientific-references)
 - [Repository Structure](#-repository-structure)
-- [Local Setup & Quick Start Guide](#-local-setup--quick-start-guide)
-- [Automated Testing & API Verification](#-automated-testing--api-verification)
+- [Local Setup &amp; Quick Start Guide](#-local-setup--quick-start-guide)
+- [Automated Testing &amp; API Verification](#-automated-testing--api-verification)
 
 ---
 
@@ -104,19 +110,19 @@ graph TD
     P5 -.-> S5
     P6 -.-> S6
 
-    style P1 fill:#fee2e2,stroke:#ef4444,stroke-width:1px
-    style P2 fill:#fee2e2,stroke:#ef4444,stroke-width:1px
-    style P3 fill:#fee2e2,stroke:#ef4444,stroke-width:1px
-    style P4 fill:#fee2e2,stroke:#ef4444,stroke-width:1px
-    style P5 fill:#fee2e2,stroke:#ef4444,stroke-width:1px
-    style P6 fill:#fee2e2,stroke:#ef4444,stroke-width:1px
+    style P1 fill:#fee2e2,stroke:#ef4444,stroke-width:1px,color:#1f2937
+    style P2 fill:#fee2e2,stroke:#ef4444,stroke-width:1px,color:#1f2937
+    style P3 fill:#fee2e2,stroke:#ef4444,stroke-width:1px,color:#1f2937
+    style P4 fill:#fee2e2,stroke:#ef4444,stroke-width:1px,color:#1f2937
+    style P5 fill:#fee2e2,stroke:#ef4444,stroke-width:1px,color:#1f2937
+    style P6 fill:#fee2e2,stroke:#ef4444,stroke-width:1px,color:#1f2937
 
-    style S1 fill:#dcfce7,stroke:#22c55e,stroke-width:1px
-    style S2 fill:#dcfce7,stroke:#22c55e,stroke-width:1px
-    style S3 fill:#dcfce7,stroke:#22c55e,stroke-width:1px
-    style S4 fill:#dcfce7,stroke:#22c55e,stroke-width:1px
-    style S5 fill:#dcfce7,stroke:#22c55e,stroke-width:1px
-    style S6 fill:#dcfce7,stroke:#22c55e,stroke-width:1px
+    style S1 fill:#dcfce7,stroke:#22c55e,stroke-width:1px,color:#1f2937
+    style S2 fill:#dcfce7,stroke:#22c55e,stroke-width:1px,color:#1f2937
+    style S3 fill:#dcfce7,stroke:#22c55e,stroke-width:1px,color:#1f2937
+    style S4 fill:#dcfce7,stroke:#22c55e,stroke-width:1px,color:#1f2937
+    style S5 fill:#dcfce7,stroke:#22c55e,stroke-width:1px,color:#1f2937
+    style S6 fill:#dcfce7,stroke:#22c55e,stroke-width:1px,color:#1f2937
 ```
 
 ---
@@ -187,12 +193,12 @@ flowchart TB
 
 ### Separation of Data & Trust Responsibilities
 
-| Subsystem | Underlying Technology | Primary Responsibility | Immutability Guarantee |
-| :--- | :--- | :--- | :--- |
-| **Relational Metadata** | PostgreSQL + Prisma ORM | Case metadata, users, organizational roles, ABAC overrides, physical handshakes | Protected via DB transactions & application authorization guards |
-| **Evidence Binaries** | Amazon S3 | Raw evidence binaries, disk dumps, PDF dossiers, high-res audio/video | Encrypted at rest, S3 Versioning, isolated presigned URLs, S3 Object Lock |
-| **Full-Text & AI Search** | Elasticsearch 8 + Groq | OCR-extracted text, metadata query indexing, vector embeddings | Re-indexable replica cache synchronized from authoritative S3 & Postgres |
-| **Integrity Ledger** | Hardhat EVM (Active) / Hyperledger Fabric (Roadmap) | SHA-256 content hashes, deterministic anchor IDs, custody events | **Cryptographically irreversible**; tamper-proof against root DBAs & admins |
+| Subsystem                       | Underlying Technology                               | Primary Responsibility                                                          | Immutability Guarantee                                                            |
+| :------------------------------ | :-------------------------------------------------- | :------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------- |
+| **Relational Metadata**   | PostgreSQL + Prisma ORM                             | Case metadata, users, organizational roles, ABAC overrides, physical handshakes | Protected via DB transactions & application authorization guards                  |
+| **Evidence Binaries**     | Amazon S3                                           | Raw evidence binaries, disk dumps, PDF dossiers, high-res audio/video           | Encrypted at rest, S3 Versioning, isolated presigned URLs, S3 Object Lock         |
+| **Full-Text & AI Search** | Elasticsearch 8 + Groq                              | OCR-extracted text, metadata query indexing, vector embeddings                  | Re-indexable replica cache synchronized from authoritative S3 & Postgres          |
+| **Integrity Ledger**      | Hardhat EVM (Active) / Hyperledger Fabric (Roadmap) | SHA-256 content hashes, deterministic anchor IDs, custody events                | **Cryptographically irreversible**; tamper-proof against root DBAs & admins |
 
 ---
 
@@ -300,10 +306,10 @@ graph LR
     E1 --> E2
     E2 --> E3
 
-    style E0 fill:#dbeafe,stroke:#3b82f6,stroke-width:1px
-    style E1 fill:#dbeafe,stroke:#3b82f6,stroke-width:1px
-    style E2 fill:#dbeafe,stroke:#3b82f6,stroke-width:1px
-    style E3 fill:#dcfce7,stroke:#22c55e,stroke-width:2px
+    style E0 fill:#dbeafe,stroke:#3b82f6,stroke-width:1px,color:#1f2937
+    style E1 fill:#dbeafe,stroke:#3b82f6,stroke-width:1px,color:#1f2937
+    style E2 fill:#dbeafe,stroke:#3b82f6,stroke-width:1px,color:#1f2937
+    style E3 fill:#dcfce7,stroke:#22c55e,stroke-width:2px,color:#1f2937
 ```
 
 When an auditor or judge accesses `/api/cases/:caseId/audit/verify`, the backend traverses the chain from sequence `0` to `N`, recomputing every hash in real time. **If any record has been modified or deleted by an insider, the chain immediately breaks.**
@@ -356,24 +362,36 @@ SET "sha256Hash" = 'FORGED_HASH_VAL'
 WHERE "id" = 'target_evidence_id';
 ```
 
-Because DB logs can also be cleared or rewritten, traditional databases fail to provide courtroom-admissible non-repudiation. 
+Because DB logs can also be cleared or rewritten, traditional databases fail to provide courtroom-admissible non-repudiation.
 
 **SDEMS eliminates this vulnerability through Blockchain Proof of Existence**:
+
 1. When a document revision is finalized, its immutable metadata is registered on-chain.
 2. The transaction receipt provides an unalterable block timestamp and block height.
 3. If an attacker tampers with the PostgreSQL record or S3 object, any verification call performs a dual recalculation:
-   $$\text{Hash}_{\text{Recalculated}} \neq \text{Hash}_{\text{On-Chain}} \implies \text{CRITICAL TAMPER DETECTED}$$
+   $$
+   \text{Hash}_{\text{Recalculated}} \neq \text{Hash}_{\text{On-Chain}} \implies \text{CRITICAL TAMPER DETECTED}
+   $$
 
 ### Cryptographic Formulations
 
 #### 1. Deterministic Anchor ID (Solidity / Smart Contract Layer)
-$$\text{anchorId} = \text{keccak256}\Big(\text{abi.encodePacked}(\text{caseIdHash}, \text{documentIdHash}, \text{versionNumber})\Big)$$
+
+$$
+\text{anchorId} = \text{keccak256}\Big(\text{abi.encodePacked}(\text{caseIdHash}, \text{documentIdHash}, \text{versionNumber})\Big)
+$$
 
 #### 2. Append-Only Audit Hash (Audit Chain Layer)
-$$\text{eventHash}_n = \text{SHA-256}\Big(\text{caseId} + \text{eventType} + \text{actorId} + n + \text{previousHash}_{n-1} + \text{timestamp}\Big)$$
+
+$$
+\text{eventHash}_n = \text{SHA-256}\Big(\text{caseId} + \text{eventType} + \text{actorId} + n + \text{previousHash}_{n-1} + \text{timestamp}\Big)
+$$
 
 #### 3. Content Fingerprint (Storage Layer)
-$$\text{contentHash} = \text{SHA-256}(\text{Binary Bytes of Document Version})$$
+
+$$
+\text{contentHash} = \text{SHA-256}(\text{Binary Bytes of Document Version})
+$$
 
 ### Zero-Trust Access Control (RBAC + ABAC)
 
@@ -407,16 +425,16 @@ flowchart TD
 
 To ensure total transparency between the working hackathon prototype and the production vision, here is a detailed feature status breakdown:
 
-| Capability / Feature Area | 🚀 Implemented & Fully Operational in Codebase | 🔮 Future Implementation & Enterprise Roadmap |
-| :--- | :--- | :--- |
-| **Authentication & IAM** | • JWT authentication with bcryptjs<br>• Super Admin bootstrap script<br>• Organization membership & role assignments | • Enterprise Single Sign-On (SAML 2.0 / OpenID Connect)<br>• Multi-Factor Authentication (TOTP / FIDO2 WebAuthn)<br>• Digilocker & Indian e-Pramaan ID integration |
-| **Case & Evidence Vaults** | • 13 Prisma relational models in PostgreSQL<br>• Case creation, status lifecycle, tagging<br>• Document versioning & S3 streaming<br>• Physical item registration & metadata | • Multi-region S3 replication with GovCloud compliance<br>• Automatic court disposition schedules & legal destruction protocols |
-| **Access Control (RBAC/ABAC)** | • RBAC (Org Admin, Investigator, Analyst, Custodian, Legal Auditor)<br>• ABAC dynamic `GRANT` & `DENY` case overrides<br>• Strict `CaseParticipant` boundary checks | • Contextual ABAC policies (IP subnet whitelisting, time-of-day access fences, geo-fencing for classified dossiers) |
-| **Blockchain Anchoring** | • Solidity `EvidenceRegistry.sol` deployed on Hardhat<br>• Deterministic `keccak256` anchor generation<br>• Automatic transaction commitment on upload<br>• Independent hash verification endpoint | • Migration to **Hyperledger Fabric v2.5/v3.0** with Fabric CA & Fabric Gateway on AWS Managed Blockchain<br>• Multi-agency endorsement policies across Police & Judiciary<br>• Zero-gas institutional consortium governance |
-| **Evidence Custody Handshake** | • Dual-confirmation transfer request & accept flow<br>• Rejection with mandatory audit reasoning<br>• Sequential `CustodyEvent` chain linking | • Biometric fingerprint confirmation on physical handoff<br>• QR/Barcode scanning integration for evidence locker tracking |
-| **Audit Trails & Verification** | • Append-only cryptographic hash chaining (`eventHash`)<br>• Sequential integrity validation endpoint (`/audit/verify`)<br>• Live discrepancy & tampering reporting | • Periodic Merkle root checkpoint anchoring to national public ledger<br>• RFC 3161 compliant cryptographic timestamping authorities |
-| **AI, OCR & Semantic Search** | • OCR text extraction using Tesseract.js (Images)<br>• Native text extraction for PDF (`pdf-parse`) and DOCX (`mammoth`)<br>• Elasticsearch 8 indexing & full-text query matching<br>• Groq SDK Llama-3 AI query expansion & summarization | • Offline fine-tuned Indian legal BERT embeddings (e-Courts domain)<br>• Automated redaction of personally identifiable information (PII) before external sharing |
-| **Frontend Application** | • Full React 19 + TypeScript + Vite + Tailwind CSS dashboard<br>• 15 functional modules (Cases, Docs, Evidence, Custody, Verification, Audit, Users, Orgs, Reports, Settings)<br>• Redux Toolkit state management & React Router 7 | • Native mobile application (React Native) for field officers to seize and hash evidence at physical crime scenes |
+| Capability / Feature Area             | 🚀 Implemented & Fully Operational in Codebase                                                                                                                                                                                         | 🔮 Future Implementation & Enterprise Roadmap                                                                                                                                                                                |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Authentication & IAM**        | • JWT authentication with bcryptjs• Super Admin bootstrap script• Organization membership & role assignments                                                                                                                        | • Enterprise Single Sign-On (SAML 2.0 / OpenID Connect)• Multi-Factor Authentication (TOTP / FIDO2 WebAuthn)• Digilocker & Indian e-Pramaan ID integration                                                                |
+| **Case & Evidence Vaults**      | • 13 Prisma relational models in PostgreSQL• Case creation, status lifecycle, tagging• Document versioning & S3 streaming• Physical item registration & metadata                                                                   | • Multi-region S3 replication with GovCloud compliance• Automatic court disposition schedules & legal destruction protocols                                                                                                |
+| **Access Control (RBAC/ABAC)**  | • RBAC (Org Admin, Investigator, Analyst, Custodian, Legal Auditor)• ABAC dynamic `GRANT` & `DENY` case overrides• Strict `CaseParticipant` boundary checks                                                                   | • Contextual ABAC policies (IP subnet whitelisting, time-of-day access fences, geo-fencing for classified dossiers)                                                                                                         |
+| **Blockchain Anchoring**        | • Solidity`EvidenceRegistry.sol` deployed on Hardhat• Deterministic `keccak256` anchor generation• Automatic transaction commitment on upload• Independent hash verification endpoint                                          | • Migration to**Hyperledger Fabric v2.5/v3.0** with Fabric CA & Fabric Gateway on AWS Managed Blockchain• Multi-agency endorsement policies across Police & Judiciary• Zero-gas institutional consortium governance |
+| **Evidence Custody Handshake**  | • Dual-confirmation transfer request & accept flow• Rejection with mandatory audit reasoning• Sequential `CustodyEvent` chain linking                                                                                             | • Biometric fingerprint confirmation on physical handoff• QR/Barcode scanning integration for evidence locker tracking                                                                                                     |
+| **Audit Trails & Verification** | • Append-only cryptographic hash chaining (`eventHash`)• Sequential integrity validation endpoint (`/audit/verify`)• Live discrepancy & tampering reporting                                                                     | • Periodic Merkle root checkpoint anchoring to national public ledger• RFC 3161 compliant cryptographic timestamping authorities                                                                                           |
+| **AI, OCR & Semantic Search**   | • OCR text extraction using Tesseract.js (Images)• Native text extraction for PDF (`pdf-parse`) and DOCX (`mammoth`)• Elasticsearch 8 indexing & full-text query matching• Groq SDK Llama-3 AI query expansion & summarization | • Offline fine-tuned Indian legal BERT embeddings (e-Courts domain)• Automated redaction of personally identifiable information (PII) before external sharing                                                              |
+| **Frontend Application**        | • Full React 19 + TypeScript + Vite + Tailwind CSS dashboard• 15 functional modules (Cases, Docs, Evidence, Custody, Verification, Audit, Users, Orgs, Reports, Settings)• Redux Toolkit state management & React Router 7          | • Native mobile application (React Native) for field officers to seize and hash evidence at physical crime scenes                                                                                                           |
 
 ---
 
@@ -455,6 +473,7 @@ To ensure total transparency between the working hackathon prototype and the pro
 ```
 
 ### Financial & Operational Feasibility
+
 - **Cloud Storage Optimization**: Evidence files reside in Amazon S3 standard tier with automated lifecycle transitions to Glacier for inactive cases, reducing monthly storage overhead by over 70%.
 - **Compute Efficiency**: Node.js and Express 5 provide high-throughput, non-blocking I/O handling thousands of concurrent case requests with modest CPU footprints.
 - **Zero-Gas Economics**: Utilizing an institutional permissioned blockchain (Hyperledger Fabric / Private EVM) guarantees zero transaction fees, eliminating reliance on volatile cryptocurrency markets.
@@ -463,18 +482,18 @@ To ensure total transparency between the working hackathon prototype and the pro
 
 ## 🏆 Competitive Benchmarking Matrix
 
-| Feature / Capability | SDEMS (Team ThreeSixNine) | C-DAC DEMS | eSakshya (NIC) | Axon Evidence |
-| :--- | :---: | :---: | :---: | :---: |
-| **Secure Evidence Storage** | ✅ S3 + Versioning | ✅ Central Server | ✅ Government Cloud | ✅ Azure Cloud |
-| **Chain-of-Custody Tracking** | ✅ Dual-Party Handshake | ⚠️ Basic DB Log | ⚠️ Procedural Manual | ✅ Proprietary Log |
-| **Evidence Search & Retrieval** | ✅ Elasticsearch + OCR + AI | ⚠️ Keyword Metadata | ⚠️ Basic Case ID | ✅ Video Transcription |
-| **Access Control (RBAC + ABAC)** | ✅ Fine-Grained Dual Tier | ⚠️ Role-Based Only | ⚠️ Departmental Roles | ✅ Role-Based Only |
-| **Immutable File Versioning** | ✅ Cryptographic SHA-256 | ⚠️ Filename Versioning | ⚠️ Sequential Numbers | ✅ File Checksums |
-| **Independent Verification** | ✅ Open Cryptographic Math | ❌ Proprietary Portal | ❌ Internal Only | ❌ Axon Platform Only |
-| **Blockchain Anchor Proof** | ✅ EVM (Active) / Fabric | ❌ None | ⚠️ Pilot Evaluation | ❌ None |
-| **Blockchain Custody Logs** | ✅ Tamper-Proof Audit Chain | ❌ None | ❌ None | ❌ None |
-| **Physical + Digital Tracking** | ✅ Unified Workflow | ❌ Digital Documents | ⚠️ Digital Recordings | ⚠️ Hardware Tagging |
-| **Case Lifecycle Management** | ✅ Complete (Open $\to$ Archive) | ✅ Document Oriented | ⚠️ Trial Focused | ✅ Investigation Centric |
+| Feature / Capability                   |     SDEMS (Team ThreeSixNine)     |        C-DAC DEMS        |     eSakshya (NIC)     |      Axon Evidence      |
+| :------------------------------------- | :-------------------------------: | :----------------------: | :---------------------: | :----------------------: |
+| **Secure Evidence Storage**      |        ✅ S3 + Versioning        |    ✅ Central Server    |   ✅ Government Cloud   |      ✅ Azure Cloud      |
+| **Chain-of-Custody Tracking**    |      ✅ Dual-Party Handshake      |    ⚠️ Basic DB Log    | ⚠️ Procedural Manual |    ✅ Proprietary Log    |
+| **Evidence Search & Retrieval**  |    ✅ Elasticsearch + OCR + AI    |  ⚠️ Keyword Metadata  |   ⚠️ Basic Case ID   |  ✅ Video Transcription  |
+| **Access Control (RBAC + ABAC)** |     ✅ Fine-Grained Dual Tier     |   ⚠️ Role-Based Only   | ⚠️ Departmental Roles |    ✅ Role-Based Only    |
+| **Immutable File Versioning**    |     ✅ Cryptographic SHA-256     | ⚠️ Filename Versioning | ⚠️ Sequential Numbers |    ✅ File Checksums    |
+| **Independent Verification**     |    ✅ Open Cryptographic Math    |  ❌ Proprietary Portal  |    ❌ Internal Only    |  ❌ Axon Platform Only  |
+| **Blockchain Anchor Proof**      |     ✅ EVM (Active) / Fabric     |         ❌ None         |  ⚠️ Pilot Evaluation  |         ❌ None         |
+| **Blockchain Custody Logs**      |    ✅ Tamper-Proof Audit Chain    |         ❌ None         |         ❌ None         |         ❌ None         |
+| **Physical + Digital Tracking**  |        ✅ Unified Workflow        |   ❌ Digital Documents   | ⚠️ Digital Recordings |  ⚠️ Hardware Tagging  |
+| **Case Lifecycle Management**    | ✅ Complete (Open$\to$ Archive) |   ✅ Document Oriented   |   ⚠️ Trial Focused   | ✅ Investigation Centric |
 
 ---
 
@@ -593,6 +612,7 @@ sdems-evidence-management-system/
 ## 🚀 Local Setup & Quick Start Guide
 
 ### Prerequisites
+
 - **Node.js**: `v20.x` or higher
 - **Docker & Docker Compose**: Installed and active
 - **PostgreSQL**: Local server or cloud instance (e.g. Supabase, AWS RDS)
@@ -601,6 +621,7 @@ sdems-evidence-management-system/
 ---
 
 ### Step 1: Clone Repository
+
 ```bash
 git clone https://github.com/MasirJafri1/sdems-evidence-management-system.git
 cd sdems-evidence-management-system
@@ -611,6 +632,7 @@ cd sdems-evidence-management-system
 ### Step 2: Configure Environment Variables
 
 Create `backend/.env`:
+
 ```env
 # Database Connection
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/sdems_db?schema=public"
@@ -644,10 +666,13 @@ GROQ_API_KEY=""
 ---
 
 ### Step 3: Start Elasticsearch Cluster (Docker)
+
 ```bash
 docker compose -f docker-compose.elastic.yml up -d
 ```
+
 Verify cluster health:
+
 ```bash
 curl http://localhost:9200/_cluster/health
 ```
@@ -676,38 +701,46 @@ cd ..
 ### Step 5: Launch Blockchain & Deploy Smart Contract
 
 **Terminal 1 (Start Local EVM Node):**
+
 ```bash
 cd backend
 npm run blockchain:node
 ```
 
 **Terminal 2 (Deploy Contract):**
+
 ```bash
 cd backend
 npm run blockchain:deploy
 ```
+
 *(Copy the deployed contract address into your `backend/.env` file under `BLOCKCHAIN_CONTRACT_ADDRESS` if different from default)*.
 
 ---
 
 ### Step 6: Start Backend API Server
+
 ```bash
 cd backend
 npm run dev
 ```
-The server will start on **`http://localhost:5000`**.  
-Interactive Swagger OpenAPI documentation is accessible at:  
+
+The server will start on **`http://localhost:5000`**.
+Interactive Swagger OpenAPI documentation is accessible at:
 👉 **[http://localhost:5000/api-docs](http://localhost:5000/api-docs)**
 
 ---
 
 ### Step 7: Launch Frontend Application
+
 Open a new terminal:
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+
 The frontend will start on **`http://localhost:5173`**.
 
 ---
@@ -722,9 +755,10 @@ node test_all_endpoints.cjs
 ```
 
 ### Verified Test Output
+
 ```text
 =================================================
-   AUTOMATED ALL-ENDPOINTS SWAGGER API TESTER    
+   AUTOMATED ALL-ENDPOINTS SWAGGER API TESTER  
 =================================================
 
 ✅ PASS | Health Check [GET /health] -> Status 200
@@ -746,7 +780,7 @@ node test_all_endpoints.cjs
 ✅ PASS | Verify Case Audit Chain [GET /api/cases/:id/audit/verify] -> Status 200
 ...
 =================================================
-                 TEST SUMMARY                    
+                 TEST SUMMARY                  
 =================================================
 TOTAL ENDPOINTS TESTED : 26
 PASSED                 : 26
