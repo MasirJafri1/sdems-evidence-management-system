@@ -136,7 +136,7 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
     }
 
     // Index in Elasticsearch (non-blocking)
-    indexDocumentById(document.id).catch((err) =>
+    indexDocumentById(document.id, file.buffer || file.path).catch((err) =>
       console.warn("[ES] Background indexing failed for new document:", err.message)
     );
 
@@ -665,7 +665,7 @@ export async function createDocumentVersion(
     }
 
     // Re-index in Elasticsearch with new version content (non-blocking)
-    indexDocumentById(document.id).catch((err) =>
+    indexDocumentById(document.id, file.buffer || file.path).catch((err) =>
       console.warn("[ES] Background indexing failed for new version:", err.message)
     );
 

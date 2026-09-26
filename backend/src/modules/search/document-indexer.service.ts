@@ -10,7 +10,7 @@ import { indexEntityInElasticsearch } from "./search.service";
  * Indexes a single Document (and its latest version) into Elasticsearch.
  * Asynchronously extracts full text content from local storage or S3, computes embeddings, and updates ES.
  */
-export async function indexDocumentById(documentId: string): Promise<void> {
+export async function indexDocumentById(documentId: string, directFileInput?: Buffer | string): Promise<void> {
   try {
     const doc = await prisma.document.findUnique({
       where: { id: documentId },
@@ -40,40 +40,48 @@ export async function indexDocumentById(documentId: string): Promise<void> {
     const latestVersion = doc.versions[0];
     let extractedText = "";
 
-    // 1. Try local file path first
-    const fileCandidates = [
-      latestVersion.storageKey,
-      path.join(process.cwd(), "uploads", latestVersion.storageKey),
-      path.join(process.cwd(), latestVersion.storageKey)
-    ];
-
-    let foundPath = fileCandidates.find((p) => fs.existsSync(p));
-    if (foundPath) {
+    if (directFileInput) {
       extractedText = await extractTextFromFile(
-        foundPath,
+        directFileInput,
         latestVersion.mimeType,
         latestVersion.originalFileName
       );
-    } else if (latestVersion.storageBucket && latestVersion.storageKey) {
-      // 2. Fetch from AWS S3 storage
-      try {
-        const s3Obj = await s3.send(
-          new GetObjectCommand({
-            Bucket: latestVersion.storageBucket,
-            Key: latestVersion.storageKey
-          })
+    } else {
+      // 1. Try local file path first
+      const fileCandidates = [
+        latestVersion.storageKey,
+        path.join(process.cwd(), "uploads", latestVersion.storageKey),
+        path.join(process.cwd(), latestVersion.storageKey)
+      ];
+
+      let foundPath = fileCandidates.find((p) => fs.existsSync(p));
+      if (foundPath) {
+        extractedText = await extractTextFromFile(
+          foundPath,
+          latestVersion.mimeType,
+          latestVersion.originalFileName
         );
-        if (s3Obj.Body) {
-          const byteArray = await s3Obj.Body.transformToByteArray();
-          const buffer = Buffer.from(byteArray);
-          extractedText = await extractTextFromFile(
-            buffer,
-            latestVersion.mimeType,
-            latestVersion.originalFileName
+      } else if (latestVersion.storageBucket && latestVersion.storageKey) {
+        // 2. Fetch from AWS S3 storage
+        try {
+          const s3Obj = await s3.send(
+            new GetObjectCommand({
+              Bucket: latestVersion.storageBucket,
+              Key: latestVersion.storageKey
+            })
           );
+          if (s3Obj.Body) {
+            const byteArray = await s3Obj.Body.transformToByteArray();
+            const buffer = Buffer.from(byteArray);
+            extractedText = await extractTextFromFile(
+              buffer,
+              latestVersion.mimeType,
+              latestVersion.originalFileName
+            );
+          }
+        } catch (s3Err: any) {
+          console.warn(`[DocumentIndexer] Could not fetch file from S3 for doc ${doc.id}:`, s3Err.message);
         }
-      } catch (s3Err: any) {
-        console.warn(`[DocumentIndexer] Could not fetch file from S3 for doc ${doc.id}:`, s3Err.message);
       }
     }
 

@@ -178,19 +178,33 @@ export async function executeScopedSearch(
       bool: {
         must: [
           {
-            multi_match: {
-              query,
-              fields: [
-                "title^3",
-                "title.ngram^2",
-                "content",
-                "summary^2",
-                "serialNumber^4",
-                "caseNumber^3",
-                "evidenceType^2",
-                "tags^2"
+            bool: {
+              should: [
+                {
+                  multi_match: {
+                    query,
+                    fields: [
+                      "title^3",
+                      "content",
+                      "summary^2",
+                      "serialNumber^4",
+                      "caseNumber^3",
+                      "evidenceType^2",
+                      "tags^2"
+                    ],
+                    fuzziness: "AUTO"
+                  }
+                },
+                {
+                  match: {
+                    "title.ngram": {
+                      query,
+                      boost: 2
+                    }
+                  }
+                }
               ],
-              fuzziness: "AUTO"
+              minimum_should_match: 1
             }
           }
         ],
