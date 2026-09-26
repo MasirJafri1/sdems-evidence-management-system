@@ -228,37 +228,64 @@ export async function executeScopedSearch(
     });
   }
 
-  const searchRequest: any = {
-    index: SDEMS_SEARCH_INDEX,
-    from,
-    size: limit,
-    query: esQuery,
-    highlight: {
-      require_field_match: false,
-      fields: {
-        title: { number_of_fragments: 0 },
-        content: {
-          fragment_size: 160,
-          number_of_fragments: 3,
-          no_match_size: 160
-        },
-        summary: { number_of_fragments: 0 },
-        serialNumber: { number_of_fragments: 0 }
-      },
-      pre_tags: ["<mark>"],
-      post_tags: ["</mark>"]
-    }
-  };
+  let searchRequest: any;
 
-  // Add top-level kNN vector search for Elasticsearch 8+
-  if (!isOpenSearch && queryEmbedding && queryEmbedding.length > 0) {
-    searchRequest.knn = {
-      field: "embedding",
-      query_vector: queryEmbedding,
-      k: 10,
-      num_candidates: 50,
-      filter: mustFilters
+  if (isOpenSearch) {
+    searchRequest = {
+      index: SDEMS_SEARCH_INDEX,
+      body: {
+        from,
+        size: limit,
+        query: esQuery,
+        highlight: {
+          require_field_match: false,
+          fields: {
+            title: { number_of_fragments: 0 },
+            content: {
+              fragment_size: 160,
+              number_of_fragments: 3,
+              no_match_size: 160
+            },
+            summary: { number_of_fragments: 0 },
+            serialNumber: { number_of_fragments: 0 }
+          },
+          pre_tags: ["<mark>"],
+          post_tags: ["</mark>"]
+        }
+      }
     };
+  } else {
+    searchRequest = {
+      index: SDEMS_SEARCH_INDEX,
+      from,
+      size: limit,
+      query: esQuery,
+      highlight: {
+        require_field_match: false,
+        fields: {
+          title: { number_of_fragments: 0 },
+          content: {
+            fragment_size: 160,
+            number_of_fragments: 3,
+            no_match_size: 160
+          },
+          summary: { number_of_fragments: 0 },
+          serialNumber: { number_of_fragments: 0 }
+        },
+        pre_tags: ["<mark>"],
+        post_tags: ["</mark>"]
+      }
+    };
+
+    if (queryEmbedding && queryEmbedding.length > 0) {
+      searchRequest.knn = {
+        field: "embedding",
+        query_vector: queryEmbedding,
+        k: 10,
+        num_candidates: 50,
+        filter: mustFilters
+      };
+    }
   }
 
   try {
