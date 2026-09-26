@@ -31,7 +31,7 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().optional().default(""),
   OPENROUTER_EMBEDDING_MODEL: z
     .string()
-    .default("sentence-transformers/all-minilm-l6-v2"),
+    .default("qwen/qwen3-embedding-8b"),
   GROQ_API_KEY: z.string().optional().default(""),
   GROQ_MODEL: z.string().default("llama-3.3-70b-versatile")
 });
