@@ -2,8 +2,7 @@ import fs from "fs";
 import mammoth from "mammoth";
 import { createWorker } from "tesseract.js";
 
-// Use require for pdf-parse to avoid TypeScript call signature mismatch in CommonJS
-const pdfParse = require("pdf-parse");
+// pdf-parse is required dynamically inside extractTextFromFile to prevent serverless DOMMatrix crash
 
 /**
  * Sanitizes raw extracted text by stripping out raw PDF operators, structural object keywords, and font coordinate streams
@@ -80,6 +79,9 @@ export async function extractTextFromFile(
     // 2. PDF Documents via pdf-parse
     if (lowerMime.includes("pdf") || lowerName.endsWith(".pdf")) {
       try {
+        if (typeof (globalThis as any).DOMMatrix === "undefined") {
+          (globalThis as any).DOMMatrix = class DOMMatrix {};
+        }
         const pdfModule = require("pdf-parse");
         const parseFn = typeof pdfModule === "function" ? pdfModule : pdfModule.default || pdfModule.PDFParse;
         if (typeof parseFn === "function") {
