@@ -32,3 +32,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 coverage/
+
+# Terraform
+*.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl

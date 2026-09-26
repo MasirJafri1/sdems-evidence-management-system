@@ -1,9 +1,29 @@
-import { Client } from "@elastic/elasticsearch";
+import { Client as OpenSearchClient } from "@opensearch-project/opensearch";
+import { Client as ElasticClient } from "@elastic/elasticsearch";
 import { env } from "../../config/env";
 
-export const esClient = new Client({
-  node: env.ELASTICSEARCH_URL || "http://localhost:9200"
-});
+function createSearchClient(): any {
+  const targetUrl = env.OPENSEARCH_URL || env.ELASTICSEARCH_URL || "http://localhost:9200";
+  const auth = (env.OPENSEARCH_USERNAME && env.OPENSEARCH_PASSWORD)
+    ? { username: env.OPENSEARCH_USERNAME, password: env.OPENSEARCH_PASSWORD }
+    : undefined;
+
+  if (env.OPENSEARCH_URL) {
+    console.log(`[SearchClient] Initializing AWS OpenSearch client for ${targetUrl}`);
+    return new OpenSearchClient({
+      node: targetUrl,
+      auth,
+      ssl: { rejectUnauthorized: false }
+    });
+  }
+
+  return new ElasticClient({
+    node: targetUrl,
+    ...(auth ? { auth } : {})
+  });
+}
+
+export const esClient: any = createSearchClient();
 
 export const SDEMS_SEARCH_INDEX = "sdems_search_index";
 export const SDEMS_VECTOR_DIMENSION = 1024;
@@ -14,28 +34,29 @@ export async function initElasticsearch(recreateIfMismatch = false): Promise<{
   error?: string;
 }> {
   try {
-    const pingOk = await esClient.ping();
-    if (!pingOk) {
+    const isPingOk = await esClient.ping().then((res: any) => res?.body ?? res).catch(() => false);
+    if (!isPingOk) {
+      console.warn("[Search] Unable to ping search cluster. Operating in DB fallback mode.");
       return { connected: false, indexCreated: false, error: "Ping failed" };
     }
 
-    const indexExists = await esClient.indices.exists({
-      index: SDEMS_SEARCH_INDEX
-    });
+    const existsResponse = await esClient.indices.exists({ index: SDEMS_SEARCH_INDEX });
+    const indexExists = existsResponse?.body ?? existsResponse;
 
     if (indexExists && recreateIfMismatch) {
-      console.log(`[Elasticsearch] Recreating index "${SDEMS_SEARCH_INDEX}" with dimension ${SDEMS_VECTOR_DIMENSION}...`);
+      console.log(`[Search] Recreating index "${SDEMS_SEARCH_INDEX}" with dimension ${SDEMS_VECTOR_DIMENSION}...`);
       await esClient.indices.delete({ index: SDEMS_SEARCH_INDEX });
     }
 
-    const checkExistsAgain = await esClient.indices.exists({
-      index: SDEMS_SEARCH_INDEX
-    });
+    const checkAgainResponse = await esClient.indices.exists({ index: SDEMS_SEARCH_INDEX });
+    const checkExistsAgain = checkAgainResponse?.body ?? checkAgainResponse;
 
     if (!checkExistsAgain) {
+      const isOS = Boolean(env.OPENSEARCH_URL);
       const createPayload: any = {
         index: SDEMS_SEARCH_INDEX,
         settings: {
+          ...(isOS ? { "index.knn": true } : {}),
           analysis: {
             analyzer: {
               ngram_analyzer: {
@@ -84,24 +105,21 @@ export async function initElasticsearch(recreateIfMismatch = false): Promise<{
             status: { type: "keyword" },
             uploadedBy: { type: "text" },
             createdAt: { type: "date" },
-            embedding: {
-              type: "dense_vector",
-              dims: SDEMS_VECTOR_DIMENSION,
-              index: true,
-              similarity: "cosine"
-            }
+            embedding: isOS
+              ? { type: "knn_vector", dimension: SDEMS_VECTOR_DIMENSION }
+              : { type: "dense_vector", dims: SDEMS_VECTOR_DIMENSION, index: true, similarity: "cosine" }
           }
         }
       };
 
       await esClient.indices.create(createPayload);
-      console.log(`[Elasticsearch] Index "${SDEMS_SEARCH_INDEX}" successfully initialized with dense_vector(${SDEMS_VECTOR_DIMENSION} dims).`);
+      console.log(`[Search] Index "${SDEMS_SEARCH_INDEX}" successfully initialized on ${isOS ? "AWS OpenSearch" : "Elasticsearch"}.`);
       return { connected: true, indexCreated: true };
     }
 
     return { connected: true, indexCreated: false };
   } catch (err: any) {
-    console.warn("[Elasticsearch] Initialization warning:", err.message);
+    console.warn("[Search] Initialization warning:", err.message);
     return { connected: false, indexCreated: false, error: err.message };
   }
 }

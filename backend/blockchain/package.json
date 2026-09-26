@@ -8,7 +8,8 @@
     "compile": "hardhat build",
     "test": "hardhat test",
     "node": "hardhat node",
-    "deploy:local": "hardhat run scripts/deploy.ts --network localhost"
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "start": "node start.js"
   },
   "keywords": [],
   "author": "",

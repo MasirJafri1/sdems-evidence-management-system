@@ -14,9 +14,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   isLoading,
   error,
 }) => {
-  const [orgCode, setOrgCode] = useState('GOV-SUPERADMIN');
-  const [email, setEmail] = useState('superadmin@gov.in');
-  const [password, setPassword] = useState('Password123!');
+  const [orgCode, setOrgCode] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
 
   const handleSubmit = (e: React.FormEvent) => {
