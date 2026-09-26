@@ -1,10 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthCard } from '../components/AuthCard';
 import { LoginForm } from '../components/LoginForm';
 import { useLogin } from '../hooks/useLogin';
 import { ENV } from '../../../config/env.config';
 
 export const LoginPage: React.FC = () => {
+  const navigate = useNavigate();
   const { login, isLoading, error } = useLogin();
 
   const handleLoginSubmit = (organizationCode: string, email: string, password: string) => {
@@ -20,7 +22,7 @@ export const LoginPage: React.FC = () => {
         
         {/* Top Emblem Header */}
         <div className="relative z-10">
-          <div className="inline-flex items-center gap-3">
+          <div className="inline-flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-10 h-10 rounded-md bg-[#123B63] border-2 border-[#B58B4A] font-extrabold text-white flex items-center justify-center text-xs tracking-wider shadow-2xs">
               GOV
             </div>
@@ -29,7 +31,7 @@ export const LoginPage: React.FC = () => {
                 {ENV.APP_NAME}
               </h1>
               <span className="text-[10px] text-[#B58B4A] uppercase font-bold tracking-wider block">
-                Official Digital Evidence System
+                ← Back to SIH Overview & Demo Video
               </span>
             </div>
           </div>

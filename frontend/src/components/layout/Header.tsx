@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, LogOut, ChevronDown } from 'lucide-react';
+import { Search, LogOut, ChevronDown, Menu, X } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { logout } from '../../modules/auth/store/auth.slice';
 import { GlobalSearchModal } from '../search/GlobalSearchModal';
@@ -7,7 +7,12 @@ import { NotificationDropdown } from '../../modules/notifications/components/Not
 import emblemPng from '../../assets/emblem.png';
 import flagPng from '../../assets/flag.png';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onToggleMobileSidebar?: () => void;
+  isMobileSidebarOpen?: boolean;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, isMobileSidebarOpen }) => {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -47,19 +52,29 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="bg-white border-b border-[#DCE3EA] px-4 lg:px-6 py-2.5 flex items-center justify-between sticky top-0 z-30 shadow-xs">
-      {/* Left: Emblem + Govt of India / MHA */}
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="flex items-center gap-2.5">
-          <img src={emblemPng} alt="Government of India Emblem" className="h-11 w-auto object-contain" />
+    <header className="bg-white border-b border-[#DCE3EA] px-3 sm:px-4 lg:px-6 py-2.5 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+      {/* Left: Mobile Menu Toggle + Emblem + Govt of India / MHA */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {onToggleMobileSidebar && (
+          <button
+            onClick={onToggleMobileSidebar}
+            className="md:hidden p-1.5 text-[#123B63] hover:bg-[#F6F8FB] rounded-md border border-[#DCE3EA] cursor-pointer"
+            aria-label="Toggle Navigation Menu"
+          >
+            {isMobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        )}
+
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <img src={emblemPng} alt="Government of India Emblem" className="h-9 sm:h-11 w-auto object-contain" />
           <div className="flex flex-col justify-center">
-            <span className="text-[9px] font-extrabold text-[#2F6B95] tracking-wider uppercase leading-tight">
-              SIH PS : SIH26190 Given By 
+            <span className="text-[8px] sm:text-[9px] font-extrabold text-[#2F6B95] tracking-wider uppercase leading-tight">
+              SIH PS : SIH26190 Given By
             </span>
-            <span className="text-[13px] font-bold text-[#123B63] tracking-tight font-serif leading-tight">
+            <span className="text-[11px] sm:text-[13px] font-bold text-[#123B63] tracking-tight font-serif leading-tight">
               Government of India
             </span>
-            <span className="text-[10px] text-[#5B6875] font-medium leading-tight">
+            <span className="text-[9px] sm:text-[10px] text-[#5B6875] font-medium leading-tight hidden sm:block">
               Ministry of Home Affairs
             </span>
           </div>

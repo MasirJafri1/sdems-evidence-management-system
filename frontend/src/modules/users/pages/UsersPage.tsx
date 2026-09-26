@@ -93,7 +93,7 @@ export const UsersPage: React.FC = () => {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [user?.organizationId]);
 
   const fetchUsers = async () => {
@@ -369,17 +369,15 @@ export const UsersPage: React.FC = () => {
           <div className="flex items-center gap-1 bg-[#F6F8FB] border border-[#DCE3EA] p-1 rounded-md">
             <button
               onClick={() => setActiveTab('users')}
-              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
-                activeTab === 'users' ? 'bg-[#123B63] text-white' : 'text-[#5B6875] hover:text-[#123B63]'
-              }`}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${activeTab === 'users' ? 'bg-[#123B63] text-white' : 'text-[#5B6875] hover:text-[#123B63]'
+                }`}
             >
               Officer Roster ({users.length})
             </button>
             <button
               onClick={() => setActiveTab('permissions')}
-              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
-                activeTab === 'permissions' ? 'bg-[#123B63] text-white' : 'text-[#5B6875] hover:text-[#123B63]'
-              }`}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${activeTab === 'permissions' ? 'bg-[#123B63] text-white' : 'text-[#5B6875] hover:text-[#123B63]'
+                }`}
             >
               Permission Matrix
             </button>
@@ -554,18 +552,16 @@ export const UsersPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setEnrollMode('EXISTING')}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${
-                    enrollMode === 'EXISTING' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'
-                  }`}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${enrollMode === 'EXISTING' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'
+                    }`}
                 >
                   Enroll Existing Global User (Search by Email/ID)
                 </button>
                 <button
                   type="button"
                   onClick={() => setEnrollMode('NEW')}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${
-                    enrollMode === 'NEW' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'
-                  }`}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${enrollMode === 'NEW' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'
+                    }`}
                 >
                   Provision New User Account
                 </button>
@@ -741,11 +737,10 @@ export const UsersPage: React.FC = () => {
                             return (
                               <label
                                 key={p.name}
-                                className={`flex items-center gap-2 p-2 rounded border transition-colors cursor-pointer text-xs ${
-                                  isChecked
+                                className={`flex items-center gap-2 p-2 rounded border transition-colors cursor-pointer text-xs ${isChecked
                                     ? 'bg-indigo-50/80 border-indigo-300 text-indigo-950 font-semibold'
                                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                                }`}
+                                  }`}
                               >
                                 <input
                                   type="checkbox"
@@ -774,8 +769,8 @@ export const UsersPage: React.FC = () => {
               {enrollOrgId === 'NONE'
                 ? 'Provision Standalone Officer'
                 : enrollMode === 'EXISTING'
-                ? 'Enroll Officer into Org'
-                : 'Provision New Account'}
+                  ? 'Enroll Officer into Org'
+                  : 'Provision New Account'}
             </Button>
           </div>
         </form>

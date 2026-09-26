@@ -93,7 +93,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         <span className="text-[10px] font-bold text-[#5B6875] uppercase tracking-wider block">
           ⚡ Quick Demo Login Credentials
         </span>
-        <div className="grid grid-cols-3 gap-2 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
           <button
             type="button"
             onClick={() => {

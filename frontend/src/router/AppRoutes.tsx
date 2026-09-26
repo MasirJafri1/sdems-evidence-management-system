@@ -22,9 +22,13 @@ import { SettingsPage } from '../modules/settings/pages/SettingsPage';
 
 import { AccessRequestsPage } from '../modules/authorization/pages/AccessRequestsPage';
 
+import { LandingPage } from '../modules/landing/pages/LandingPage';
+
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
+      <Route path={ROUTES.PUBLIC.LANDING} element={<LandingPage />} />
+
       <Route
         path={ROUTES.PUBLIC.LOGIN}
         element={
