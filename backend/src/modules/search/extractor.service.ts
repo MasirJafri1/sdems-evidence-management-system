@@ -2,7 +2,31 @@ import fs from "fs";
 import mammoth from "mammoth";
 import { createWorker } from "tesseract.js";
 
-// pdf-parse is required dynamically inside extractTextFromFile to prevent serverless DOMMatrix crash
+/**
+ * Validates if extracted text is genuine human-readable content rather than compressed binary stream noise.
+ * Fast O(1) sampling of initial 50 words to prevent latency overhead on large documents.
+ */
+function isQualityText(text: string): boolean {
+  if (!text || text.trim().length < 5) return false;
+
+  // Sample only the first 50 words for instant O(1) quality check
+  const sampleText = text.slice(0, 3000);
+  const sampleWords = sampleText.split(/\s+/).slice(0, 50).filter(Boolean);
+  if (sampleWords.length === 0) return false;
+
+  let noiseCount = 0;
+  for (const word of sampleWords) {
+    if (/[#@$\\%^&*~_=\\+<>{}\\[\\]]/.test(word)) {
+      noiseCount++;
+    } else if (word.length > 5 && !/[aeiouyAEIOUY]/.test(word)) {
+      noiseCount++;
+    } else if (/[a-z][A-Z][0-9]/.test(word) || /[A-Z][a-z][0-9][A-Z]/.test(word)) {
+      noiseCount++;
+    }
+  }
+
+  return (noiseCount / sampleWords.length) < 0.35;
+}
 
 /**
  * Sanitizes raw extracted text by stripping out raw PDF operators, structural object keywords, and font coordinate streams
@@ -31,6 +55,53 @@ function sanitizeExtractedText(text: string): string {
     .trim();
 
   return cleaned;
+}
+
+/**
+ * Robust helper to parse PDF buffer using pdf-parse (v2 class or v1 function) with full DOMMatrix polyfill
+ */
+async function parsePdfBuffer(buffer: Buffer): Promise<string> {
+  if (typeof (globalThis as any).DOMMatrix === "undefined") {
+    (globalThis as any).DOMMatrix = class DOMMatrix {
+      a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+      multiply() { return this; }
+      translate() { return this; }
+      scale() { return this; }
+      rotate() { return this; }
+      inverse() { return this; }
+      transformPoint(p: any) { return p; }
+    };
+  }
+
+  const pdfModule = require("pdf-parse");
+
+  // 1. pdf-parse v2 (Class constructor PDFParse)
+  const PDFParseClass = pdfModule.PDFParse || (pdfModule.default && pdfModule.default.PDFParse);
+  if (typeof PDFParseClass === "function" && PDFParseClass.prototype && typeof PDFParseClass.prototype.getText === "function") {
+    const parser = new PDFParseClass({ data: buffer });
+    try {
+      const result = await parser.getText();
+      if (parser.destroy && typeof parser.destroy === "function") {
+        await parser.destroy().catch(() => {});
+      }
+      if (result && typeof result.text === "string" && result.text.trim().length > 0) {
+        return result.text;
+      }
+    } catch (err: any) {
+      console.warn("[TextExtractor] PDFParse v2 getText error:", err.message);
+    }
+  }
+
+  // 2. pdf-parse v1 (Function export)
+  const parseFn = typeof pdfModule === "function" ? pdfModule : (pdfModule.default && typeof pdfModule.default === "function" ? pdfModule.default : null);
+  if (parseFn) {
+    const parsed = await parseFn(buffer);
+    if (parsed && typeof parsed.text === "string" && parsed.text.trim().length > 0) {
+      return parsed.text;
+    }
+  }
+
+  return "";
 }
 
 /**
@@ -79,18 +150,11 @@ export async function extractTextFromFile(
     // 2. PDF Documents via pdf-parse
     if (lowerMime.includes("pdf") || lowerName.endsWith(".pdf")) {
       try {
-        if (typeof (globalThis as any).DOMMatrix === "undefined") {
-          (globalThis as any).DOMMatrix = class DOMMatrix {};
-        }
-        const pdfModule = require("pdf-parse");
-        const parseFn = typeof pdfModule === "function" ? pdfModule : pdfModule.default || pdfModule.PDFParse;
-        if (typeof parseFn === "function") {
-          const parsed = await parseFn(buffer);
-          if (parsed && parsed.text && parsed.text.trim().length > 0) {
-            const sanitized = sanitizeExtractedText(parsed.text);
-            if (sanitized.length > 0) {
-              return sanitized.slice(0, 100000);
-            }
+        const text = await parsePdfBuffer(buffer);
+        if (text && text.trim().length > 0) {
+          const sanitized = sanitizeExtractedText(text);
+          if (isQualityText(sanitized)) {
+            return sanitized.slice(0, 100000);
           }
         }
       } catch (err: any) {
@@ -109,7 +173,10 @@ export async function extractTextFromFile(
       try {
         const result = await mammoth.extractRawText({ buffer });
         if (result && result.value && result.value.trim().length > 0) {
-          return sanitizeExtractedText(result.value).slice(0, 100000);
+          const sanitized = sanitizeExtractedText(result.value);
+          if (isQualityText(sanitized)) {
+            return sanitized.slice(0, 100000);
+          }
         }
       } catch (err: any) {
         console.warn("[TextExtractor] mammoth failed for docx:", err.message);
@@ -131,7 +198,10 @@ export async function extractTextFromFile(
         const ret = await worker.recognize(buffer);
         await worker.terminate();
         if (ret && ret.data && ret.data.text) {
-          return sanitizeExtractedText(ret.data.text).slice(0, 100000);
+          const sanitized = sanitizeExtractedText(ret.data.text);
+          if (isQualityText(sanitized)) {
+            return sanitized.slice(0, 100000);
+          }
         }
       } catch (err: any) {
         console.warn("[TextExtractor] Tesseract OCR failed:", err.message);
@@ -148,10 +218,14 @@ export async function extractTextFromFile(
 }
 
 /**
- * Extracts readable string words from raw binary buffers, filtering out PDF code operators
+ * Extracts readable string words from raw binary buffers, filtering out PDF compressed stream noise
  */
 function extractPrintableStrings(buffer: Buffer): string {
-  const str = buffer.toString("utf8");
+  let str = buffer.toString("utf8");
+
+  // Strip compressed binary streams (between stream and endstream keywords)
+  str = str.replace(/stream[\s\S]*?endstream/g, " ");
+
   const matches = str.match(/[A-Za-z][A-Za-z0-9\s.,!?:;@_#\-\/'"]{3,}/g) || [];
   
   const rawClean = matches
@@ -163,5 +237,10 @@ function extractPrintableStrings(buffer: Buffer): string {
     .slice(0, 1000)
     .join(" ");
 
-  return sanitizeExtractedText(rawClean).slice(0, 40000);
+  const sanitized = sanitizeExtractedText(rawClean);
+  if (isQualityText(sanitized)) {
+    return sanitized.slice(0, 40000);
+  }
+  return "";
 }
+

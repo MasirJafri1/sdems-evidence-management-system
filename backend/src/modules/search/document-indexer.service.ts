@@ -194,11 +194,16 @@ export async function indexEvidenceById(evidenceId: string): Promise<void> {
   }
 }
 
+import { initElasticsearch } from "./elastic.client";
+
 /**
  * Centralized full reindexing of all active documents and evidence items.
+ * Clears and recreates past index schema before populating fresh extracted content.
  */
 export async function reindexAllInElasticsearch(): Promise<{ documentsIndexed: number; evidenceIndexed: number }> {
-  console.log("[DocumentIndexer] Starting full reindex into Elasticsearch...");
+  console.log("[DocumentIndexer] Wiping past index and initializing fresh index...");
+  await initElasticsearch(true);
+  console.log("[DocumentIndexer] Starting full reindex into Elasticsearch/OpenSearch...");
   
   const documents = await prisma.document.findMany({
     where: { status: "ACTIVE" },
