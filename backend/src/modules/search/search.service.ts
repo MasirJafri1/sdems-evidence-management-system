@@ -1,4 +1,4 @@
-import { esClient, SDEMS_SEARCH_INDEX } from "./elastic.client";
+import { esClient, SDEMS_SEARCH_INDEX, isOpenSearch } from "./elastic.client";
 import { generateEmbedding } from "./embedding.service";
 import { UserSearchScope } from "./scope.resolver";
 import { generateRetrievalSummary, RetrievalContextItem } from "./llm.service";
@@ -28,7 +28,7 @@ export interface IndexDocumentPayload {
 }
 
 /**
- * Indexes or updates a document/evidence entity in Elasticsearch.
+ * Indexes or updates a document/evidence entity in Elasticsearch or AWS OpenSearch.
  * Computes vector embeddings in the background to avoid blocking critical transactions.
  */
 export async function indexEntityInElasticsearch(payload: IndexDocumentPayload): Promise<void> {
@@ -38,16 +38,25 @@ export async function indexEntityInElasticsearch(payload: IndexDocumentPayload):
     // Generate embedding (from OpenRouter or fallback)
     const embedding = await generateEmbedding(textToEmbed);
 
-    await esClient.index({
+    const docData = {
+      ...payload,
+      createdAt: payload.createdAt ? new Date(payload.createdAt).toISOString() : new Date().toISOString(),
+      embedding
+    };
+
+    const indexPayload: any = {
       index: SDEMS_SEARCH_INDEX,
       id: payload.id,
-      document: {
-        ...payload,
-        createdAt: payload.createdAt ? new Date(payload.createdAt).toISOString() : new Date().toISOString(),
-        embedding
-      },
-      refresh: "wait_for" // Ensures immediate queryability
-    });
+      refresh: "wait_for"
+    };
+
+    if (isOpenSearch) {
+      indexPayload.body = docData;
+    } else {
+      indexPayload.document = docData;
+    }
+
+    await esClient.index(indexPayload);
 
     console.log(`[Elasticsearch] Indexed ${payload.entityType} "${payload.title}" (${payload.id}) under Case "${payload.caseNumber}".`);
   } catch (err: any) {
@@ -190,6 +199,21 @@ export async function executeScopedSearch(
     };
   }
 
+  // Add kNN vector clause for OpenSearch inside bool query
+  if (isOpenSearch && queryEmbedding && queryEmbedding.length > 0) {
+    if (!esQuery.bool.should) {
+      esQuery.bool.should = [];
+    }
+    esQuery.bool.should.push({
+      knn: {
+        embedding: {
+          vector: queryEmbedding,
+          k: 10
+        }
+      }
+    });
+  }
+
   const searchRequest: any = {
     index: SDEMS_SEARCH_INDEX,
     from,
@@ -212,8 +236,8 @@ export async function executeScopedSearch(
     }
   };
 
-  // Add kNN semantic vector search if vector exists
-  if (queryEmbedding && queryEmbedding.length > 0) {
+  // Add top-level kNN vector search for Elasticsearch 8+
+  if (!isOpenSearch && queryEmbedding && queryEmbedding.length > 0) {
     searchRequest.knn = {
       field: "embedding",
       query_vector: queryEmbedding,
@@ -224,7 +248,8 @@ export async function executeScopedSearch(
   }
 
   try {
-    const esResponse: any = await esClient.search(searchRequest);
+    const rawResponse: any = await esClient.search(searchRequest);
+    const esResponse: any = rawResponse.body ?? rawResponse;
     const totalHits = typeof esResponse.hits?.total === "number"
       ? esResponse.hits.total
       : esResponse.hits?.total?.value || 0;

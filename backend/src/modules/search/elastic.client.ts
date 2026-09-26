@@ -24,6 +24,7 @@ function createSearchClient(): any {
 }
 
 export const esClient: any = createSearchClient();
+export const isOpenSearch = Boolean(env.OPENSEARCH_URL);
 
 export const SDEMS_SEARCH_INDEX = "sdems_search_index";
 export const SDEMS_VECTOR_DIMENSION = 1024;
@@ -52,7 +53,7 @@ export async function initElasticsearch(recreateIfMismatch = false): Promise<{
     const checkExistsAgain = checkAgainResponse?.body ?? checkAgainResponse;
 
     if (!checkExistsAgain) {
-      const isOS = Boolean(env.OPENSEARCH_URL);
+      const isOS = isOpenSearch;
       const createPayload: any = {
         index: SDEMS_SEARCH_INDEX,
         settings: {
