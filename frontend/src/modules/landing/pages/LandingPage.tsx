@@ -113,9 +113,6 @@ export const LandingPage: React.FC = () => {
             <button onClick={() => scrollToSection('solution')} className="hover:text-slate-900 transition-colors cursor-pointer">
               Solution
             </button>
-            <button onClick={() => scrollToSection('features')} className="hover:text-slate-900 transition-colors cursor-pointer">
-              Features
-            </button>
             <button onClick={() => scrollToSection('architecture')} className="hover:text-slate-900 transition-colors cursor-pointer">
               Architecture
             </button>
@@ -486,7 +483,7 @@ export const LandingPage: React.FC = () => {
               {/* YOUTUBE IFRAME EMBEDDED INSIDE TABLET SCREEN */}
               <div className="relative w-full aspect-video rounded-lg sm:rounded-xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner">
                 <iframe
-                  src="https://www.youtube.com/embed/dVx8jnoIaBI?rel=0&modestbranding=1&autoplay=0"
+                  src="https://www.youtube.com/embed/9Bb6slWITno?rel=0&modestbranding=1&autoplay=0"
                   title="SDEMS Platform Demo Video"
                   className="w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
