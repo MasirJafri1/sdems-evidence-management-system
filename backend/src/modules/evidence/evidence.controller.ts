@@ -80,10 +80,8 @@ export async function createEvidenceController(
       userAgent: req.get("user-agent") ?? undefined
     });
 
-    // Auto-index in Elasticsearch (non-blocking)
-    indexEvidenceById(evidence.id).catch((err) =>
-      console.warn("[ES] Background indexing failed for new evidence item:", err.message)
-    );
+    // Auto-index in OpenSearch (awaited before response)
+    await indexEvidenceById(evidence.id);
 
     res.status(201).json({
       evidence: serializeEvidence(evidence)

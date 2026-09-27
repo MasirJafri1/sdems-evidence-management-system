@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { esClient, SDEMS_SEARCH_INDEX, initElasticsearch } from "./elastic.client";
+import { esClient, SDEMS_SEARCH_INDEX, ensureOpenSearchInitialized } from "./elastic.client";
 import { authenticate, AuthenticatedRequest } from "../../middleware/auth";
 import { resolveUserSearchScope } from "./scope.resolver";
 import { executeScopedSearch } from "./search.service";
@@ -7,45 +7,70 @@ import { reindexAllInElasticsearch } from "./document-indexer.service";
 
 const router = Router();
 
+/**
+ * GET /api/search/health
+ * Public/protected OpenSearch health & diagnostics endpoint
+ */
 router.get("/health", async (_req: Request, res: Response) => {
   try {
-    const ping = await esClient.ping();
-    let clusterInfo: any = null;
-    let indexExists = false;
+    const init = await ensureOpenSearchInitialized();
+    if (!init.connected) {
+      res.json({
+        connected: false,
+        index: SDEMS_SEARCH_INDEX,
+        indexExists: false,
+        documentCount: 0,
+        error: init.error || "OpenSearch ping failed"
+      });
+      return;
+    }
 
-    if (ping) {
-      clusterInfo = await esClient.cluster.health();
-      const rawExists: any = await esClient.indices.exists({ index: SDEMS_SEARCH_INDEX });
-      indexExists = Boolean(rawExists === true || rawExists?.body === true || rawExists?.statusCode === 200 || rawExists?.status === 200);
+    const rawExists: any = await esClient.indices.exists({ index: SDEMS_SEARCH_INDEX });
+    const indexExists = Boolean(rawExists === true || rawExists?.body === true || rawExists?.statusCode === 200 || rawExists?.status === 200);
+
+    let documentCount = 0;
+    if (indexExists) {
+      try {
+        const countRes: any = await esClient.count({ index: SDEMS_SEARCH_INDEX });
+        documentCount = countRes?.body?.count ?? countRes?.count ?? 0;
+      } catch (err: any) {
+        console.warn("[SearchRoutes] Document count check failed:", err.message);
+      }
     }
 
     res.json({
-      status: ping ? "UP" : "DOWN",
-      cluster: clusterInfo?.cluster_name || "unavailable",
-      clusterStatus: clusterInfo?.status || "disconnected",
-      numberOfNodes: clusterInfo?.number_of_nodes || 0,
+      connected: true,
+      index: SDEMS_SEARCH_INDEX,
       indexExists,
-      targetIndex: SDEMS_SEARCH_INDEX
+      documentCount
     });
   } catch (err: any) {
     res.status(503).json({
-      status: "DOWN",
-      error: err.message,
-      message: "Elasticsearch is unreachable. Please ensure Elasticsearch is running on port 9200."
+      connected: false,
+      index: SDEMS_SEARCH_INDEX,
+      indexExists: false,
+      documentCount: 0,
+      error: err.message
     });
   }
 });
 
+/**
+ * POST /api/search/init
+ */
 router.post("/init", async (req: Request, res: Response) => {
   const reset = req.body?.reset === true;
-  const result = await initElasticsearch(reset);
+  const result = await ensureOpenSearchInitialized(reset);
   if (result.connected) {
-    res.json({ message: "Elasticsearch connected & initialized", ...result });
+    res.json({ message: "OpenSearch connected & initialized", ...result });
   } else {
-    res.status(503).json({ message: "Failed to initialize Elasticsearch", ...result });
+    res.status(503).json({ message: "Failed to initialize OpenSearch", ...result });
   }
 });
 
+/**
+ * POST /api/search/test-connectors
+ */
 router.post("/test-connectors", async (req: Request, res: Response) => {
   const sampleText = req.body?.text || "Ballistics report regarding 9mm ammunition casing recovered from scene";
   
@@ -60,7 +85,7 @@ router.post("/test-connectors", async (req: Request, res: Response) => {
         id: "ev-test-1",
         title: "Forensic Ballistics Report",
         caseNumber: "CASE-2026-TEST",
-        entityType: "DOCUMENT",
+        entityType: "DOCUMENT" as const,
         snippet: sampleText,
         sha256Hash: "d9e1b7a2396b133037f4eab178802f4ddd1507275b48fcc12c41f0c7128127c5",
         versionNumber: 1
@@ -76,9 +101,9 @@ router.post("/test-connectors", async (req: Request, res: Response) => {
       success: true,
       testedText: sampleText,
       embedding: {
-        dimensions: embedding.length,
-        sampleVector: embedding.slice(0, 5),
-        isGenerated: embedding.length > 0
+        dimensions: embedding ? embedding.length : 0,
+        sampleVector: embedding ? embedding.slice(0, 5) : [],
+        isGenerated: Boolean(embedding && embedding.length > 0)
       },
       llm: llmSummary
     });
@@ -137,7 +162,7 @@ router.get("/", authenticate, async (req: AuthenticatedRequest, res: Response) =
 
 /**
  * POST /api/search/reindex
- * Administrative route to sync all existing PostgreSQL records into Elasticsearch
+ * Administrative route to sync all existing PostgreSQL records into OpenSearch
  */
 router.post("/reindex", authenticate, async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.userId!;
@@ -149,13 +174,12 @@ router.post("/reindex", authenticate, async (req: AuthenticatedRequest, res: Res
   }
 
   try {
-    const { documentsIndexed, evidenceIndexed } = await reindexAllInElasticsearch();
+    const report = await reindexAllInElasticsearch();
 
     res.json({
       success: true,
-      message: `Successfully re-indexed ${documentsIndexed} documents and ${evidenceIndexed} evidence items.`,
-      indexedDocsCount: documentsIndexed,
-      indexedEvidenceCount: evidenceIndexed
+      message: `Reindex finished in ${report.durationMs}ms: attempted=${report.attempted}, successful=${report.successful}, failed=${report.failed}`,
+      report
     });
   } catch (err: any) {
     res.status(500).json({

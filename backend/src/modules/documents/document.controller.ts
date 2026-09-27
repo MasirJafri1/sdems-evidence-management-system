@@ -135,10 +135,8 @@ export async function createDocument(req: AuthenticatedRequest, res: Response) {
       console.error("Blockchain anchoring failed:", error);
     }
 
-    // Index in Elasticsearch (non-blocking)
-    indexDocumentById(document.id, file.buffer || file.path).catch((err) =>
-      console.warn("[ES] Background indexing failed for new document:", err.message)
-    );
+    // Index in OpenSearch (awaited before response)
+    await indexDocumentById(document.id, file.buffer || file.path);
 
     await createAuditEvent({
       caseId,
@@ -664,10 +662,8 @@ export async function createDocumentVersion(
       console.error("Blockchain anchoring failed:", error);
     }
 
-    // Re-index in Elasticsearch with new version content (non-blocking)
-    indexDocumentById(document.id, file.buffer || file.path).catch((err) =>
-      console.warn("[ES] Background indexing failed for new version:", err.message)
-    );
+    // Re-index in OpenSearch with new version content (awaited before response)
+    await indexDocumentById(document.id, file.buffer || file.path);
 
     await createAuditEvent({
       caseId: document.caseId,

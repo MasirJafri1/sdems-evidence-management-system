@@ -3,62 +3,31 @@ import mammoth from "mammoth";
 import { createWorker } from "tesseract.js";
 
 /**
- * Validates if extracted text is genuine human-readable content rather than compressed binary stream noise.
- * Fast O(1) sampling of initial 50 words to prevent latency overhead on large documents.
+ * Validates if extracted text is genuine non-empty text content.
+ * Does NOT reject forensic identifiers (hashes, serial numbers, IP addresses, logs).
  */
-function isQualityText(text: string): boolean {
-  if (!text || text.trim().length < 5) return false;
-
-  // Sample only the first 50 words for instant O(1) quality check
-  const sampleText = text.slice(0, 3000);
-  const sampleWords = sampleText.split(/\s+/).slice(0, 50).filter(Boolean);
-  if (sampleWords.length === 0) return false;
-
-  let noiseCount = 0;
-  for (const word of sampleWords) {
-    if (/[#@$\\%^&*~_=\\+<>{}\\[\\]]/.test(word)) {
-      noiseCount++;
-    } else if (word.length > 5 && !/[aeiouyAEIOUY]/.test(word)) {
-      noiseCount++;
-    } else if (/[a-z][A-Z][0-9]/.test(word) || /[A-Z][a-z][0-9][A-Z]/.test(word)) {
-      noiseCount++;
-    }
-  }
-
-  return (noiseCount / sampleWords.length) < 0.35;
+export function isQualityText(text: string): boolean {
+  if (!text || typeof text !== "string") return false;
+  const trimmed = text.trim();
+  if (trimmed.length < 2) return false;
+  const printable = trimmed.replace(/[\x00-\x1F\x7F-\x9F]/g, "");
+  return printable.length >= 2;
 }
 
 /**
- * Sanitizes raw extracted text by stripping out raw PDF operators, structural object keywords, and font coordinate streams
+ * Sanitizes extracted text by normalizing control characters and excessive whitespace.
+ * Preserves all forensic tokens: hashes, serial numbers, IP addresses, paths, timestamps, CVEs.
  */
-function sanitizeExtractedText(text: string): string {
+export function sanitizeExtractedText(text: string): string {
   if (!text) return "";
-
-  let cleaned = text
-    // Remove PDF structural object tags & headers (PDF-1.3, 1 0 R, 4 0 obj, MediaBox, endobj, endstream, etc.)
-    .replace(/PDF-\d+\.\d+/gi, " ")
-    .replace(/\b\d+\s+\d+\s+(R|obj)\b/gi, " ")
-    .replace(/\b(endobj|endstream|MediaBox|CropBox|Resources|Parent|Type|Page|Pages|Length|Catalog|Outlines)\b/gi, " ")
-    .replace(/\/Type\s*\/[A-Za-z0-9]+/gi, " ")
-    // Remove font reference identifiers (e.g. /F1, /F2, /F15, /Helvetica)
-    .replace(/\/[A-Za-z0-9_\-]+/g, " ")
-    // Remove signed/unsigned floating point coordinates (e.g. 722.8348818897637784, 595.2799999999999727, -5.6692913385826778)
-    .replace(/-?\b\d+\.\d+\b/g, " ")
-    // Remove PDF text/graphics operators and font parameters (BT, ET, Tf, TL, Td, TD, Tm, T*, rg, RG, re, cm, Tj, TJ, re f, etc.)
-    .replace(/\b(BT|ET|Tf|TL|Td|TD|Tm|T\*|rg|RG|re|cm|Tj|TJ|re\s+f)\b/gi, " ")
-    // Remove single character vector drawing operators (m, l, c, v, y, h, W, n, q, Q) when isolated by space/start/end
-    .replace(/(?:^|\s)[a-z]\b/gi, " ")
-    // Remove standalone single character or repeating character noise
-    .replace(/(?:\b[A-Za-z0-9]\b\s*){3,}/g, " ")
-    // Collapse multiple spaces
+  return text
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-
-  return cleaned;
 }
 
 /**
- * Robust helper to parse PDF buffer using pdf-parse (v2 class or v1 function) with full DOMMatrix polyfill
+ * Helper to parse PDF buffer using pdf-parse with DOMMatrix polyfill
  */
 async function parsePdfBuffer(buffer: Buffer): Promise<string> {
   if (typeof (globalThis as any).DOMMatrix === "undefined") {
@@ -104,25 +73,38 @@ async function parsePdfBuffer(buffer: Buffer): Promise<string> {
   return "";
 }
 
+export interface ExtractionResult {
+  text: string;
+  method: string;
+  charCount: number;
+  wordCount: number;
+  success: boolean;
+}
+
 /**
- * Robust Text Extractor for In-File Document Search & Indexing
- * Supports:
- * - Plain text, Markdown, CSV, JSON, Log files (.txt, .md, .csv, .json, .log, .xml, .html)
- * - PDF documents (via pdf-parse + PDF stream sanitizer)
- * - Word documents (.docx, .doc via mammoth)
- * - Images (.jpg, .jpeg, .png, .bmp, .tiff via tesseract.js OCR)
+ * Text Extractor supporting: PDF, DOCX, TXT/Logs/JSON/CSV, and Images via OCR
  */
 export async function extractTextFromFile(
   filePathOrBuffer: string | Buffer,
   mimeType?: string,
   fileName?: string
 ): Promise<string> {
+  const result = await extractTextWithMetadata(filePathOrBuffer, mimeType, fileName);
+  return result.text;
+}
+
+export async function extractTextWithMetadata(
+  filePathOrBuffer: string | Buffer,
+  mimeType?: string,
+  fileName?: string
+): Promise<ExtractionResult> {
   try {
     let buffer: Buffer;
 
     if (typeof filePathOrBuffer === "string") {
       if (!fs.existsSync(filePathOrBuffer)) {
-        return "";
+        console.warn(`[TextExtractor] File not found at path: ${filePathOrBuffer}`);
+        return { text: "", method: "file_not_found", charCount: 0, wordCount: 0, success: false };
       }
       buffer = await fs.promises.readFile(filePathOrBuffer);
     } else {
@@ -142,9 +124,21 @@ export async function extractTextFromFile(
       lowerName.endsWith(".json") ||
       lowerName.endsWith(".csv") ||
       lowerName.endsWith(".md") ||
-      lowerName.endsWith(".log")
+      lowerName.endsWith(".log") ||
+      lowerName.endsWith(".xml") ||
+      lowerName.endsWith(".html")
     ) {
-      return sanitizeExtractedText(buffer.toString("utf8")).slice(0, 100000);
+      const rawText = buffer.toString("utf8");
+      const cleaned = sanitizeExtractedText(rawText).slice(0, 150000);
+      const wordCount = cleaned ? cleaned.split(/\s+/).filter(Boolean).length : 0;
+      console.log(`[TextExtractor] Plain text extraction: ${cleaned.length} chars, ${wordCount} words from "${fileName || "file"}"`);
+      return {
+        text: cleaned,
+        method: "plain_text",
+        charCount: cleaned.length,
+        wordCount,
+        success: isQualityText(cleaned)
+      };
     }
 
     // 2. PDF Documents via pdf-parse
@@ -152,15 +146,33 @@ export async function extractTextFromFile(
       try {
         const text = await parsePdfBuffer(buffer);
         if (text && text.trim().length > 0) {
-          const sanitized = sanitizeExtractedText(text);
-          if (isQualityText(sanitized)) {
-            return sanitized.slice(0, 100000);
+          const cleaned = sanitizeExtractedText(text).slice(0, 150000);
+          if (isQualityText(cleaned)) {
+            const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+            console.log(`[TextExtractor] PDF pdf-parse extraction: ${cleaned.length} chars, ${wordCount} words from "${fileName || "file"}"`);
+            return {
+              text: cleaned,
+              method: "pdf-parse",
+              charCount: cleaned.length,
+              wordCount,
+              success: true
+            };
           }
         }
       } catch (err: any) {
-        console.warn("[TextExtractor] pdf-parse failed, falling back to raw extractor:", err.message);
+        console.warn("[TextExtractor] pdf-parse failed, attempting printable strings fallback:", err.message);
       }
-      return extractPrintableStrings(buffer);
+
+      const fallbackText = extractPrintableStrings(buffer);
+      const wordCount = fallbackText ? fallbackText.split(/\s+/).filter(Boolean).length : 0;
+      console.log(`[TextExtractor] PDF fallback extraction: ${fallbackText.length} chars, ${wordCount} words`);
+      return {
+        text: fallbackText,
+        method: "pdf-binary-fallback",
+        charCount: fallbackText.length,
+        wordCount,
+        success: isQualityText(fallbackText)
+      };
     }
 
     // 3. Word Documents (.docx, .doc) via mammoth
@@ -173,15 +185,32 @@ export async function extractTextFromFile(
       try {
         const result = await mammoth.extractRawText({ buffer });
         if (result && result.value && result.value.trim().length > 0) {
-          const sanitized = sanitizeExtractedText(result.value);
-          if (isQualityText(sanitized)) {
-            return sanitized.slice(0, 100000);
+          const cleaned = sanitizeExtractedText(result.value).slice(0, 150000);
+          if (isQualityText(cleaned)) {
+            const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+            console.log(`[TextExtractor] DOCX mammoth extraction: ${cleaned.length} chars, ${wordCount} words from "${fileName || "file"}"`);
+            return {
+              text: cleaned,
+              method: "docx-mammoth",
+              charCount: cleaned.length,
+              wordCount,
+              success: true
+            };
           }
         }
       } catch (err: any) {
         console.warn("[TextExtractor] mammoth failed for docx:", err.message);
       }
-      return extractPrintableStrings(buffer);
+
+      const fallbackText = extractPrintableStrings(buffer);
+      const wordCount = fallbackText ? fallbackText.split(/\s+/).filter(Boolean).length : 0;
+      return {
+        text: fallbackText,
+        method: "docx-fallback",
+        charCount: fallbackText.length,
+        wordCount,
+        success: isQualityText(fallbackText)
+      };
     }
 
     // 4. Images (.png, .jpg, .jpeg, .bmp, .tiff, .webp) via Tesseract OCR
@@ -198,49 +227,54 @@ export async function extractTextFromFile(
         const ret = await worker.recognize(buffer);
         await worker.terminate();
         if (ret && ret.data && ret.data.text) {
-          const sanitized = sanitizeExtractedText(ret.data.text);
-          if (isQualityText(sanitized)) {
-            return sanitized.slice(0, 100000);
+          const cleaned = sanitizeExtractedText(ret.data.text).slice(0, 150000);
+          if (isQualityText(cleaned)) {
+            const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+            console.log(`[TextExtractor] OCR Tesseract extraction: ${cleaned.length} chars, ${wordCount} words from "${fileName || "file"}"`);
+            return {
+              text: cleaned,
+              method: "tesseract-ocr",
+              charCount: cleaned.length,
+              wordCount,
+              success: true
+            };
           }
         }
       } catch (err: any) {
         console.warn("[TextExtractor] Tesseract OCR failed:", err.message);
       }
-      return extractPrintableStrings(buffer);
+
+      const fallbackText = extractPrintableStrings(buffer);
+      const wordCount = fallbackText ? fallbackText.split(/\s+/).filter(Boolean).length : 0;
+      return {
+        text: fallbackText,
+        method: "image-ocr-fallback",
+        charCount: fallbackText.length,
+        wordCount,
+        success: isQualityText(fallbackText)
+      };
     }
 
-    // 5. Fallback: Extract readable ASCII/UTF-8 strings from binary file
-    return extractPrintableStrings(buffer);
+    // 5. Default Fallback
+    const fallbackText = extractPrintableStrings(buffer);
+    const wordCount = fallbackText ? fallbackText.split(/\s+/).filter(Boolean).length : 0;
+    return {
+      text: fallbackText,
+      method: "binary-printable-strings",
+      charCount: fallbackText.length,
+      wordCount,
+      success: isQualityText(fallbackText)
+    };
   } catch (err: any) {
-    console.warn("[TextExtractor] Failed to extract text from file:", err.message);
-    return "";
+    console.warn("[TextExtractor] Extraction error:", err.message);
+    return { text: "", method: "error", charCount: 0, wordCount: 0, success: false };
   }
 }
 
-/**
- * Extracts readable string words from raw binary buffers, filtering out PDF compressed stream noise
- */
 function extractPrintableStrings(buffer: Buffer): string {
   let str = buffer.toString("utf8");
-
-  // Strip compressed binary streams (between stream and endstream keywords)
   str = str.replace(/stream[\s\S]*?endstream/g, " ");
-
-  const matches = str.match(/[A-Za-z][A-Za-z0-9\s.,!?:;@_#\-\/'"]{3,}/g) || [];
-  
-  const rawClean = matches
-    .filter((w) => {
-      const tr = w.trim();
-      if (tr.includes("/F") || tr.includes("Tf") || tr.includes("TL") || tr.includes("Td") || tr.includes("re f") || tr.includes("endobj")) return false;
-      return tr.length > 3 && /[A-Za-z]/.test(tr);
-    })
-    .slice(0, 1000)
-    .join(" ");
-
-  const sanitized = sanitizeExtractedText(rawClean);
-  if (isQualityText(sanitized)) {
-    return sanitized.slice(0, 40000);
-  }
-  return "";
+  const matches = str.match(/[A-Za-z0-9\s.,!?:;@_#\-\/'"]{3,}/g) || [];
+  const rawClean = matches.join(" ");
+  return sanitizeExtractedText(rawClean).slice(0, 40000);
 }
-

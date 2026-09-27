@@ -3,49 +3,59 @@ import path from "path";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { prisma } from "../../lib/prisma";
 import { s3 } from "../../lib/s3";
-import { extractTextFromFile } from "./extractor.service";
+import { extractTextWithMetadata } from "./extractor.service";
 import { indexEntityInElasticsearch } from "./search.service";
+import { ensureOpenSearchInitialized, SDEMS_SEARCH_INDEX } from "./elastic.client";
 
 /**
- * Indexes a single Document (and its latest version) into Elasticsearch.
- * Asynchronously extracts full text content from local storage or S3, computes embeddings, and updates ES.
+ * Indexes a single Document (and its latest version) into OpenSearch.
+ * Extracts full text content from local storage or S3, computes embeddings, and updates OpenSearch.
+ * Rethrows any errors so caller can handle failure explicitly.
  */
 export async function indexDocumentById(documentId: string, directFileInput?: Buffer | string): Promise<void> {
-  try {
-    const doc = await prisma.document.findUnique({
-      where: { id: documentId },
-      include: {
-        case: {
-          select: {
-            id: true,
-            caseNumber: true,
-            organizationId: true
-          }
-        },
-        versions: {
-          orderBy: { versionNumber: "desc" },
-          take: 1,
-          include: {
-            uploadedBy: { select: { id: true, name: true, email: true } },
-            blockchainAnchor: { select: { transactionHash: true, anchorId: true } }
-          }
+  const init = await ensureOpenSearchInitialized();
+  if (!init.connected) {
+    console.warn(`[DocumentIndexer] OpenSearch offline. Skipping indexing for document ${documentId}`);
+    throw new Error(`OpenSearch connection unavailable: ${init.error || "Ping failed"}`);
+  }
+
+  const doc = await prisma.document.findUnique({
+    where: { id: documentId },
+    include: {
+      case: {
+        select: {
+          id: true,
+          caseNumber: true,
+          organizationId: true
+        }
+      },
+      versions: {
+        orderBy: { versionNumber: "desc" },
+        take: 1,
+        include: {
+          uploadedBy: { select: { id: true, name: true, email: true } },
+          blockchainAnchor: { select: { transactionHash: true, anchorId: true } }
         }
       }
-    });
-
-    if (!doc || doc.status !== "ACTIVE" || doc.versions.length === 0) {
-      return;
     }
+  });
 
-    const latestVersion = doc.versions[0];
-    let extractedText = "";
+  if (!doc || doc.status !== "ACTIVE" || doc.versions.length === 0) {
+    console.warn(`[DocumentIndexer] Document ${documentId} not found, inactive, or has no versions.`);
+    return;
+  }
 
+  const latestVersion = doc.versions[0];
+  let extractedText = "";
+
+  try {
     if (directFileInput) {
-      extractedText = await extractTextFromFile(
+      const extraction = await extractTextWithMetadata(
         directFileInput,
         latestVersion.mimeType,
         latestVersion.originalFileName
       );
+      extractedText = extraction.text;
     } else {
       // 1. Try local file path first
       const fileCandidates = [
@@ -56,11 +66,12 @@ export async function indexDocumentById(documentId: string, directFileInput?: Bu
 
       let foundPath = fileCandidates.find((p) => fs.existsSync(p));
       if (foundPath) {
-        extractedText = await extractTextFromFile(
+        const extraction = await extractTextWithMetadata(
           foundPath,
           latestVersion.mimeType,
           latestVersion.originalFileName
         );
+        extractedText = extraction.text;
       } else if (latestVersion.storageBucket && latestVersion.storageKey) {
         // 2. Fetch from AWS S3 storage
         try {
@@ -73,19 +84,26 @@ export async function indexDocumentById(documentId: string, directFileInput?: Bu
           if (s3Obj.Body) {
             const byteArray = await s3Obj.Body.transformToByteArray();
             const buffer = Buffer.from(byteArray);
-            extractedText = await extractTextFromFile(
+            const extraction = await extractTextWithMetadata(
               buffer,
               latestVersion.mimeType,
               latestVersion.originalFileName
             );
+            extractedText = extraction.text;
           }
         } catch (s3Err: any) {
-          console.warn(`[DocumentIndexer] Could not fetch file from S3 for doc ${doc.id}:`, s3Err.message);
+          console.warn(`[DocumentIndexer] S3 fetch failed for document ${doc.id}:`, s3Err.message);
         }
       }
     }
 
-    const fullContent = [doc.title, doc.description || "", extractedText].filter(Boolean).join("\n\n");
+    const fullContent = [
+      doc.title,
+      doc.description || "",
+      `File: ${latestVersion.originalFileName}`,
+      `Hash: ${latestVersion.sha256Hash}`,
+      extractedText
+    ].filter(Boolean).join("\n\n");
 
     await indexEntityInElasticsearch({
       id: doc.id,
@@ -104,75 +122,94 @@ export async function indexDocumentById(documentId: string, directFileInput?: Bu
       uploadedBy: latestVersion.uploadedBy?.name || latestVersion.uploadedBy?.email || undefined,
       createdAt: doc.createdAt
     });
+
+    console.log(`[DocumentIndexer] Successfully indexed Document "${doc.title}" (${doc.id})`);
   } catch (err: any) {
-    console.warn(`[DocumentIndexer] Error indexing document ${documentId}:`, err.message);
+    console.error(`[DocumentIndexer] Failed indexing document ID="${documentId}" in index="${SDEMS_SEARCH_INDEX}":`, err);
+    throw err;
   }
 }
 
 /**
- * Indexes a single Evidence item into Elasticsearch.
+ * Indexes a single Evidence item into OpenSearch.
+ * Rethrows any errors so caller can handle failure explicitly.
  */
 export async function indexEvidenceById(evidenceId: string): Promise<void> {
-  try {
-    const evidence = await prisma.evidence.findUnique({
-      where: { id: evidenceId },
-      include: {
-        case: {
-          select: {
-            id: true,
-            caseNumber: true,
-            organizationId: true
-          }
-        },
-        documentVersion: true,
-        createdBy: { select: { id: true, name: true, email: true } },
-        currentCustodian: { select: { id: true, name: true, email: true } }
-      }
-    });
+  const init = await ensureOpenSearchInitialized();
+  if (!init.connected) {
+    console.warn(`[DocumentIndexer] OpenSearch offline. Skipping indexing for evidence ${evidenceId}`);
+    throw new Error(`OpenSearch connection unavailable: ${init.error || "Ping failed"}`);
+  }
 
-    if (!evidence) {
-      return;
-    }
-
-    let extractedText = "";
-    if (evidence.documentVersion) {
-      const fileCandidates = [
-        evidence.documentVersion.storageKey,
-        path.join(process.cwd(), "uploads", evidence.documentVersion.storageKey),
-        path.join(process.cwd(), evidence.documentVersion.storageKey)
-      ];
-      let foundPath = fileCandidates.find((p) => fs.existsSync(p));
-      if (foundPath) {
-        extractedText = await extractTextFromFile(
-          foundPath,
-          evidence.documentVersion.mimeType,
-          evidence.documentVersion.originalFileName
-        );
-      } else if (evidence.documentVersion.storageBucket && evidence.documentVersion.storageKey) {
-        try {
-          const s3Obj = await s3.send(
-            new GetObjectCommand({
-              Bucket: evidence.documentVersion.storageBucket,
-              Key: evidence.documentVersion.storageKey
-            })
-          );
-          if (s3Obj.Body) {
-            const byteArray = await s3Obj.Body.transformToByteArray();
-            const buffer = Buffer.from(byteArray);
-            extractedText = await extractTextFromFile(
-              buffer,
-              evidence.documentVersion.mimeType,
-              evidence.documentVersion.originalFileName
-            );
-          }
-        } catch (s3Err: any) {
-          console.warn(`[DocumentIndexer] S3 fetch warning for evidence ${evidence.id}:`, s3Err.message);
+  const evidence = await prisma.evidence.findUnique({
+    where: { id: evidenceId },
+    include: {
+      case: {
+        select: {
+          id: true,
+          caseNumber: true,
+          organizationId: true
         }
+      },
+      documentVersion: true,
+      createdBy: { select: { id: true, name: true, email: true } },
+      currentCustodian: { select: { id: true, name: true, email: true } }
+    }
+  });
+
+  if (!evidence) {
+    console.warn(`[DocumentIndexer] Evidence ${evidenceId} not found.`);
+    return;
+  }
+
+  let extractedText = "";
+  if (evidence.documentVersion) {
+    const fileCandidates = [
+      evidence.documentVersion.storageKey,
+      path.join(process.cwd(), "uploads", evidence.documentVersion.storageKey),
+      path.join(process.cwd(), evidence.documentVersion.storageKey)
+    ];
+    let foundPath = fileCandidates.find((p) => fs.existsSync(p));
+    if (foundPath) {
+      const extraction = await extractTextWithMetadata(
+        foundPath,
+        evidence.documentVersion.mimeType,
+        evidence.documentVersion.originalFileName
+      );
+      extractedText = extraction.text;
+    } else if (evidence.documentVersion.storageBucket && evidence.documentVersion.storageKey) {
+      try {
+        const s3Obj = await s3.send(
+          new GetObjectCommand({
+            Bucket: evidence.documentVersion.storageBucket,
+            Key: evidence.documentVersion.storageKey
+          })
+        );
+        if (s3Obj.Body) {
+          const byteArray = await s3Obj.Body.transformToByteArray();
+          const buffer = Buffer.from(byteArray);
+          const extraction = await extractTextWithMetadata(
+            buffer,
+            evidence.documentVersion.mimeType,
+            evidence.documentVersion.originalFileName
+          );
+          extractedText = extraction.text;
+        }
+      } catch (s3Err: any) {
+        console.warn(`[DocumentIndexer] S3 fetch warning for evidence ${evidence.id}:`, s3Err.message);
       }
     }
+  }
 
-    const fullContent = [evidence.title, evidence.description || "", `Serial: ${evidence.evidenceNumber}`, extractedText].filter(Boolean).join("\n\n");
+  const fullContent = [
+    evidence.title,
+    evidence.description || "",
+    `Serial: ${evidence.evidenceNumber}`,
+    evidence.documentVersion?.sha256Hash ? `Hash: ${evidence.documentVersion.sha256Hash}` : "",
+    extractedText
+  ].filter(Boolean).join("\n\n");
 
+  try {
     await indexEntityInElasticsearch({
       id: evidence.id,
       entityType: "EVIDENCE",
@@ -189,43 +226,85 @@ export async function indexEvidenceById(evidenceId: string): Promise<void> {
       uploadedBy: evidence.createdBy?.name || evidence.createdBy?.email || evidence.currentCustodian?.name || undefined,
       createdAt: evidence.createdAt
     });
+
+    console.log(`[DocumentIndexer] Successfully indexed Evidence "${evidence.title}" (${evidence.id})`);
   } catch (err: any) {
-    console.warn(`[DocumentIndexer] Error indexing evidence ${evidenceId}:`, err.message);
+    console.error(`[DocumentIndexer] Failed indexing evidence ID="${evidenceId}" in index="${SDEMS_SEARCH_INDEX}":`, err);
+    throw err;
   }
 }
 
-import { initElasticsearch } from "./elastic.client";
+export interface ReindexReport {
+  attempted: number;
+  successful: number;
+  failed: number;
+  documentsIndexed: number;
+  evidenceIndexed: number;
+  durationMs: number;
+  errors: Array<{ id: string; type: string; error: string }>;
+}
 
 /**
- * Centralized full reindexing of all active documents and evidence items.
- * Clears and recreates past index schema before populating fresh extracted content.
+ * Centralized full reindexing of all active documents and evidence items into OpenSearch.
+ * Connects, recreates index schema, loads records from Postgres, indexes them, and reports results.
  */
-export async function reindexAllInElasticsearch(): Promise<{ documentsIndexed: number; evidenceIndexed: number }> {
-  console.log("[DocumentIndexer] Wiping past index and initializing fresh index...");
-  await initElasticsearch(true);
-  console.log("[DocumentIndexer] Starting full reindex into Elasticsearch/OpenSearch...");
-  
+export async function reindexAllInElasticsearch(): Promise<ReindexReport> {
+  const startTime = Date.now();
+  console.log("[DocumentIndexer] Initializing fresh OpenSearch index for reindex...");
+  await ensureOpenSearchInitialized(true);
+
   const documents = await prisma.document.findMany({
     where: { status: "ACTIVE" },
     select: { id: true }
   });
 
-  let documentsIndexed = 0;
-  for (const doc of documents) {
-    await indexDocumentById(doc.id);
-    documentsIndexed++;
-  }
-
   const evidenceItems = await prisma.evidence.findMany({
     select: { id: true }
   });
 
+  let attempted = 0;
+  let successful = 0;
+  let failed = 0;
+  let documentsIndexed = 0;
   let evidenceIndexed = 0;
-  for (const ev of evidenceItems) {
-    await indexEvidenceById(ev.id);
-    evidenceIndexed++;
+  const errors: Array<{ id: string; type: string; error: string }> = [];
+
+  for (const doc of documents) {
+    attempted++;
+    try {
+      await indexDocumentById(doc.id);
+      successful++;
+      documentsIndexed++;
+    } catch (err: any) {
+      failed++;
+      errors.push({ id: doc.id, type: "DOCUMENT", error: err.message });
+      console.error(`[DocumentIndexer] Reindex error on document ${doc.id}:`, err.message);
+    }
   }
 
-  console.log(`[DocumentIndexer] Reindex complete: ${documentsIndexed} documents and ${evidenceIndexed} evidence items indexed.`);
-  return { documentsIndexed, evidenceIndexed };
+  for (const ev of evidenceItems) {
+    attempted++;
+    try {
+      await indexEvidenceById(ev.id);
+      successful++;
+      evidenceIndexed++;
+    } catch (err: any) {
+      failed++;
+      errors.push({ id: ev.id, type: "EVIDENCE", error: err.message });
+      console.error(`[DocumentIndexer] Reindex error on evidence ${ev.id}:`, err.message);
+    }
+  }
+
+  const durationMs = Date.now() - startTime;
+  console.log(`[DocumentIndexer] Reindex finished in ${durationMs}ms: attempted=${attempted}, successful=${successful}, failed=${failed}`);
+
+  return {
+    attempted,
+    successful,
+    failed,
+    documentsIndexed,
+    evidenceIndexed,
+    durationMs,
+    errors
+  };
 }
