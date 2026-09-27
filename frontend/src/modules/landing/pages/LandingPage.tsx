@@ -59,7 +59,7 @@ const TEAM_MEMBERS: TeamMember[] = [
     avatar: '/harshit.png',
   },
   {
-    name: 'Shrey Data',
+    name: 'Shrey Patel',
     role: 'AI/ML & Search',
     linkedin: 'https://www.linkedin.com/in/shreydata/',
     avatar: '/shrey.jpg',
